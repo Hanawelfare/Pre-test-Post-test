@@ -691,7 +691,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderAdminDashboard() {
     const logs = quizEngine.submissionsLog;
     const total = logs.length;
-    const passCount = logs.filter(l => l.isPassed).length;
+    const passCount = logs.filter(l => (typeof l.score === 'number' ? l.score >= 14 : l.isPassed)).length;
     const failCount = total - passCount;
     const passPercent = total > 0 ? ((passCount / total) * 100).toFixed(1) : '0';
     const failPercent = total > 0 ? ((failCount / total) * 100).toFixed(1) : '0';
@@ -717,10 +717,12 @@ document.addEventListener('DOMContentLoaded', () => {
         (item.fullName && item.fullName.toLowerCase().includes(search)) ||
         (item.department && item.department.toLowerCase().includes(search));
 
+      const isPass = (typeof item.score === 'number' ? item.score >= 14 : item.isPassed);
+
       const matchType = typeFilter === 'ALL' || item.testType === typeFilter;
       const matchStatus = statusFilter === 'ALL' || 
-        (statusFilter === 'PASS' && item.isPassed) ||
-        (statusFilter === 'FAIL' && !item.isPassed);
+        (statusFilter === 'PASS' && isPass) ||
+        (statusFilter === 'FAIL' && !isPass);
 
       return matchSearch && matchType && matchStatus;
     });
@@ -744,7 +746,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     records.forEach(rec => {
       const tr = document.createElement('tr');
-      const statusBadge = rec.isPassed 
+      // FOOLPROOF SCORE CHECK: Score >= 14 is PASS, Score < 14 is FAIL
+      const isPass = (typeof rec.score === 'number' ? rec.score >= 14 : rec.isPassed);
+      const calcPercent = (typeof rec.score === 'number' ? Math.round((rec.score / (rec.maxScore || 20)) * 100) : rec.percentage);
+
+      const statusBadge = isPass 
         ? `<span class="badge-status-pass">ผ่าน (PASS)</span>`
         : `<span class="badge-status-fail">ไม่ผ่าน (FAIL)</span>`;
 
@@ -755,7 +761,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <td>${rec.department || '-'}</td>
         <td><span class="badge-pill ${rec.testType === 'Pre-test' ? 'bg-primary-soft' : 'bg-success'}">${rec.testType}</span></td>
         <td><strong>${rec.score}</strong> / ${rec.maxScore || 20}</td>
-        <td>${rec.percentage}%</td>
+        <td>${calcPercent}%</td>
         <td>${statusBadge}</td>
       `;
       admTableBody.appendChild(tr);
@@ -771,7 +777,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let csvContent = "\uFEFFวัน-เวลา,รหัสพนักงาน,ชื่อ-นามสกุล,แผนก,ประเภทข้อสอบ,คะแนนที่ได้,คะแนนเต็ม,คิดเป็น %,ผลการสอบ\n";
     logs.forEach(l => {
-      csvContent += `"${l.timestamp}","${l.empId}","${l.fullName}","${l.department}","${l.testType}",${l.score},${l.maxScore || 20},"${l.percentage}%","${l.isPassed ? 'ผ่าน' : 'ไม่ผ่าน'}"\n`;
+      const isPass = (typeof l.score === 'number' ? l.score >= 14 : l.isPassed);
+      const calcPercent = (typeof l.score === 'number' ? Math.round((l.score / (l.maxScore || 20)) * 100) : l.percentage);
+      csvContent += `"${l.timestamp}","${l.empId}","${l.fullName}","${l.department}","${l.testType}",${l.score},${l.maxScore || 20},"${calcPercent}%","${isPass ? 'ผ่าน' : 'ไม่ผ่าน'}"\n`;
     });
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
