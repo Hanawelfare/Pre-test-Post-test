@@ -6,6 +6,9 @@
 // 📌 Web App URL จาก Google Apps Script สำหรับ พนักงานทุกคนใช้งานร่วมกันอัตโนมัติ
 const DEFAULT_GS_URL = "https://script.google.com/macros/s/AKfycbwvYgRcvzKO7pdGhcGXgrUFF3XW2ENMhhulJlrWJuCHu_pyrVTKMzEWOme_fmVc5L5L/exec";
 
+// 📌 รหัสผ่านผู้ดูแลระบบ (Admin Password)
+const ADMIN_PASSWORD = "089151";
+
 document.addEventListener('DOMContentLoaded', () => {
   // Elements Reference
   const screenLogin = document.getElementById('screen-login');
@@ -158,16 +161,16 @@ document.addEventListener('DOMContentLoaded', () => {
       viewEmployeeLogin.classList.add('hidden');
     });
 
-    // Admin Password Login
+    // Admin Password Login (Password: 089151)
     formAdminLogin.addEventListener('submit', (e) => {
       e.preventDefault();
       const pass = inputAdminPass.value.trim();
-      if (pass === 'admin123' || pass === 'admin') {
+      if (pass === ADMIN_PASSWORD) {
         inputAdminPass.value = '';
         renderAdminDashboard();
         switchScreen(screenAdmin);
       } else {
-        alert("รหัสผ่านผู้ดูแลระบบไม่ถูกต้อง! (รหัสผ่านเริ่มต้นคือ: admin123)");
+        alert("รหัสผ่านผู้ดูแลระบบไม่ถูกต้อง!");
       }
     });
 
