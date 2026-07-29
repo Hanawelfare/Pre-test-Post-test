@@ -168,7 +168,18 @@ class QuizEngine {
 
   syncSubmissionsLog(fetchedSubmissions) {
     if (Array.isArray(fetchedSubmissions)) {
-      this.submissionsLog = fetchedSubmissions;
+      // Submissions from Google Sheet API are in chronological order (oldest row to newest row)
+      const counters = {};
+      fetchedSubmissions.forEach(sub => {
+        const cleanId = this.cleanEmpId(sub.empId);
+        const testType = sub.testType || '';
+        const key = `${cleanId}_${testType}`;
+        counters[key] = (counters[key] || 0) + 1;
+        sub.attemptNumber = counters[key];
+      });
+
+      // Keep submissionsLog in reverse chronological order (newest first for UI table display)
+      this.submissionsLog = [...fetchedSubmissions].reverse();
     } else {
       this.submissionsLog = [];
     }
@@ -290,6 +301,15 @@ class QuizEngine {
   }
 
   recordSubmission(record) {
+    const cleanId = this.cleanEmpId(record.empId);
+    const testType = record.testType || '';
+
+    // Count existing submissions for this empId & testType
+    const existingCount = this.submissionsLog.filter(s => {
+      return this.cleanEmpId(s.empId) === cleanId && s.testType === testType;
+    }).length;
+
+    record.attemptNumber = existingCount + 1;
     this.submissionsLog.unshift(record);
   }
 
