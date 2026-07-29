@@ -33,7 +33,8 @@
         </div>
       </div>
       <div class="header-actions">
-        <button id="btn-config-gs" class="btn btn-outline btn-sm" title="ตั้งค่าการเชื่อมต่อ Google Sheets">
+        <!-- 📌 ปุ่มตั้งค่า Google Sheet จะถูกซ่อนไว้เป็นพิเศษ และแสดงเฉพาะในหน้าผู้ดูแลระบบ (Admin) เท่านั้น -->
+        <button id="btn-config-gs" class="btn btn-outline btn-sm hidden" title="ตั้งค่าการเชื่อมต่อ Google Sheets">
           <i class="fa-solid fa-link"></i> <span id="gs-status-label">Google Sheet Sync</span>
         </button>
       </div>
