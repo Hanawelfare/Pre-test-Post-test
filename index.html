@@ -11,7 +11,7 @@
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- CSS Styles with Cache Buster -->
-  <link rel="stylesheet" href="./style.css?v=1.2">
+  <link rel="stylesheet" href="./style.css?v=1.3">
 </head>
 <body>
   <div class="background-decor">
@@ -338,43 +338,50 @@
           </div>
         </div>
 
-        <!-- Overview Metrics Grid -->
-        <div class="admin-metrics-grid">
-          <div class="metric-card total">
-            <div class="metric-icon"><i class="fa-solid fa-users"></i></div>
-            <div class="metric-content">
-              <strong id="adm-total-takers">0 คน</strong>
-              <span>ผู้เข้าสอบทั้งหมด</span>
-            </div>
+        <!-- Dynamic Overview Metrics Grid (Updates automatically based on filters selected) -->
+        <div class="metrics-block">
+          <div class="metrics-block-header">
+            <span id="adm-metrics-title" class="badge-pill bg-primary-soft text-primary">
+              <i class="fa-solid fa-chart-pie"></i> สรุปผลการสอบ (คำนวณอัตโนมัติจากตัวกรองที่เลือก)
+            </span>
           </div>
-
-          <div class="metric-card pass">
-            <div class="metric-icon"><i class="fa-solid fa-circle-check"></i></div>
-            <div class="metric-content">
-              <strong id="adm-pass-count">0 คน (0%)</strong>
-              <span>สอบผ่านเกณฑ์</span>
+          <div class="admin-metrics-grid">
+            <div class="metric-card total">
+              <div class="metric-icon"><i class="fa-solid fa-users"></i></div>
+              <div class="metric-content">
+                <strong id="adm-total-takers">0 คน</strong>
+                <span>ผู้เข้าสอบในกลุ่มนี้</span>
+              </div>
             </div>
-          </div>
 
-          <div class="metric-card fail">
-            <div class="metric-icon"><i class="fa-solid fa-circle-xmark"></i></div>
-            <div class="metric-content">
-              <strong id="adm-fail-count">0 คน (0%)</strong>
-              <span>สอบไม่ผ่านเกณฑ์</span>
+            <div class="metric-card pass">
+              <div class="metric-icon"><i class="fa-solid fa-circle-check"></i></div>
+              <div class="metric-content">
+                <strong id="adm-pass-count">0 คน (0%)</strong>
+                <span>สอบผ่านเกณฑ์</span>
+              </div>
             </div>
-          </div>
 
-          <div class="metric-card avg">
-            <div class="metric-icon"><i class="fa-solid fa-star"></i></div>
-            <div class="metric-content">
-              <strong id="adm-avg-score">0 / 20</strong>
-              <span>คะแนนเฉลี่ย</span>
+            <div class="metric-card fail">
+              <div class="metric-icon"><i class="fa-solid fa-circle-xmark"></i></div>
+              <div class="metric-content">
+                <strong id="adm-fail-count">0 คน (0%)</strong>
+                <span>สอบไม่ผ่านเกณฑ์</span>
+              </div>
+            </div>
+
+            <div class="metric-card avg">
+              <div class="metric-icon"><i class="fa-solid fa-star"></i></div>
+              <div class="metric-content">
+                <strong id="adm-avg-score">0 / 20</strong>
+                <span>คะแนนเฉลี่ย</span>
+              </div>
             </div>
           </div>
         </div>
 
         <!-- Admin Toolbar (Search & Filter) -->
-        <div class="admin-toolbar">
+        <div class="admin-toolbar" style="margin-top: 1.5rem;">
           <div class="admin-search-box">
             <input type="text" id="adm-search-input" placeholder="🔍 ค้นหารหัสพนักงาน, ชื่อ หรือ แผนก...">
           </div>
@@ -407,6 +414,7 @@
                 <th>ประเภท</th>
                 <th>คะแนนที่ได้</th>
                 <th>คิดเป็น %</th>
+                <th>รอบที่ทำสอบ</th>
                 <th>ผลการสอบ</th>
               </tr>
             </thead>
@@ -472,7 +480,7 @@
   </div>
 
   <!-- Scripts with Cache Buster -->
-  <script src="./quiz.js?v=1.2"></script>
-  <script src="./app.js?v=1.2"></script>
+  <script src="./quiz.js?v=1.3"></script>
+  <script src="./app.js?v=1.3"></script>
 </body>
 </html>
