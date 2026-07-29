@@ -151,12 +151,18 @@ class QuizEngine {
     }
   }
 
+  cleanEmpId(empId) {
+    if (!empId) return '';
+    return empId.toString().replace(/^'/, '').trim().toUpperCase().replace(/^0+/, '');
+  }
+
   lookupEmployee(empId) {
     if (!empId) return null;
-    const cleanInput = empId.trim().toUpperCase();
+    const target = this.cleanEmpId(empId);
+    if (!target) return null;
     return this.employeeDatabase.find(e => {
-      const dbId = (e.empId || '').toString().trim().toUpperCase();
-      return dbId === cleanInput || dbId.replace(/^0+/, '') === cleanInput.replace(/^0+/, '');
+      const dbId = this.cleanEmpId(e.empId);
+      return dbId === target;
     });
   }
 
@@ -170,21 +176,21 @@ class QuizEngine {
 
   hasCompletedPreTest(empId) {
     if (!empId) return false;
-    const cleanInput = empId.trim().toUpperCase();
+    const target = this.cleanEmpId(empId);
+    if (!target) return false;
     return this.submissionsLog.some(item => {
-      const dbId = (item.empId || '').toString().trim().toUpperCase();
-      const matchId = (dbId === cleanInput || dbId.replace(/^0+/, '') === cleanInput.replace(/^0+/, ''));
-      return matchId && item.testType === 'Pre-test';
+      const dbId = this.cleanEmpId(item.empId);
+      return dbId === target && item.testType === 'Pre-test';
     });
   }
 
   hasCompletedPostTest(empId) {
     if (!empId) return false;
-    const cleanInput = empId.trim().toUpperCase();
+    const target = this.cleanEmpId(empId);
+    if (!target) return false;
     return this.submissionsLog.some(item => {
-      const dbId = (item.empId || '').toString().trim().toUpperCase();
-      const matchId = (dbId === cleanInput || dbId.replace(/^0+/, '') === cleanInput.replace(/^0+/, ''));
-      return matchId && item.testType === 'Post-test';
+      const dbId = this.cleanEmpId(item.empId);
+      return dbId === target && item.testType === 'Post-test';
     });
   }
 
