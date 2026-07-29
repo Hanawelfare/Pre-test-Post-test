@@ -128,9 +128,10 @@ document.addEventListener('DOMContentLoaded', () => {
     bindEvents();
     fetchEmployeesFromGoogleSheet();
 
-    // Ensure modals are hidden on load
+    // Ensure modals and admin config button are hidden on load
     modalGsConfig.classList.add('hidden');
     modalAdminEditor.classList.add('hidden');
+    btnConfigGs.classList.add('hidden');
   }
 
   function updateGsStatusBadge() {
@@ -408,6 +409,14 @@ document.addEventListener('DOMContentLoaded', () => {
   function switchScreen(targetScreen) {
     [screenLogin, screenQuiz, screenResult, screenAdmin].forEach(s => s.classList.add('hidden'));
     targetScreen.classList.remove('hidden');
+
+    // 📌 แสดงปุ่ม Google Sheet Sync เฉพาะเวลาที่อยู่ในหน้าผู้ดูแลระบบ (Admin) เท่านั้น
+    if (targetScreen === screenAdmin) {
+      btnConfigGs.classList.remove('hidden');
+    } else {
+      btnConfigGs.classList.add('hidden');
+    }
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
