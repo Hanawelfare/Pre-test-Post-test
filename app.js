@@ -698,7 +698,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // ADMIN DASHBOARD CONTROLLER & RENDERER (STRICT 1 EMP ID = 1 PERSON COUNT & ATTEMPT TRACKING)
+  // ADMIN DASHBOARD CONTROLLER & RENDERER (STRICT 1 EMP ID = 1 PERSON COUNT & PENDING POST-TEST TRACKING)
   function renderAdminDashboard() {
     filterAdminDashboardTable();
   }
@@ -708,7 +708,59 @@ document.addEventListener('DOMContentLoaded', () => {
     const typeFilter = admFilterType.value;
     const statusFilter = admFilterStatus.value;
 
-    // Filter table rows matching current search/filter
+    // 📌 SPECIAL REPORT FILTER: Employees who completed Pre-test BUT NOT Post-test!
+    if (typeFilter === 'PENDING_POST') {
+      const preSubmissionsMap = new Map(); // cleanId -> latest Pre-test submission
+      quizEngine.submissionsLog.forEach(item => {
+        if (item.testType === 'Pre-test') {
+          const cleanId = quizEngine.cleanEmpId(item.empId);
+          if (cleanId && !preSubmissionsMap.has(cleanId)) {
+            preSubmissionsMap.set(cleanId, item);
+          }
+        }
+      });
+
+      const postEmpSet = new Set();
+      quizEngine.submissionsLog.forEach(item => {
+        if (item.testType === 'Post-test') {
+          const cleanId = quizEngine.cleanEmpId(item.empId);
+          if (cleanId) postEmpSet.add(cleanId);
+        }
+      });
+
+      const pendingRecords = [];
+      preSubmissionsMap.forEach((preRecord, cleanId) => {
+        if (!postEmpSet.has(cleanId)) {
+          pendingRecords.push({
+            ...preRecord,
+            isPendingPost: true
+          });
+        }
+      });
+
+      const filteredPending = pendingRecords.filter(item => {
+        return !search || 
+          (item.empId && item.empId.toLowerCase().includes(search)) ||
+          (item.fullName && item.fullName.toLowerCase().includes(search)) ||
+          (item.department && item.department.toLowerCase().includes(search));
+      });
+
+      if (admMetricsTitle) {
+        admMetricsTitle.className = "badge-pill bg-warning text-dark";
+        admMetricsTitle.innerHTML = `<i class="fa-solid fa-clock"></i> รายชื่อพนักงานที่ทำ Pre-test แล้ว แต่ยังไม่ได้ทำ Post-test`;
+      }
+
+      const totalPending = filteredPending.length;
+      if (admTotalTakers) admTotalTakers.textContent = `${totalPending} คน`;
+      if (admPassCount) admPassCount.textContent = `0 คน (0%)`;
+      if (admFailCount) admFailCount.textContent = `${totalPending} คน (ค้างสอบ)`;
+      if (admAvgScore) admAvgScore.textContent = `- / 20`;
+
+      renderPendingPostTableRows(filteredPending);
+      return;
+    }
+
+    // Standard Filter Table rows matching current search/filter
     const filteredRows = quizEngine.submissionsLog.filter(item => {
       const matchSearch = !search || 
         (item.empId && item.empId.toLowerCase().includes(search)) ||
@@ -726,7 +778,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // 📌 Calculate UNIQUE Employee Stats STRICTLY (1 รหัสพนักงาน = 1 คน)
-    // Group filtered records STRICTLY by clean employee ID (store latest submission for that employee)
     const uniqueEmpMap = new Map();
     filteredRows.forEach(item => {
       const cleanId = quizEngine.cleanEmpId(item.empId);
@@ -767,6 +818,39 @@ document.addEventListener('DOMContentLoaded', () => {
     if (admAvgScore) admAvgScore.textContent = `${avgScore} / 20`;
 
     renderAdminTableRows(filteredRows);
+  }
+
+  function renderPendingPostTableRows(records) {
+    admTableBody.innerHTML = '';
+    if (records.length === 0) {
+      admTableBody.innerHTML = `
+        <tr>
+          <td colspan="9" class="text-center" style="padding: 2rem; color: #10b981;">
+            <i class="fa-solid fa-circle-check" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+            สุดยอด! ไม่มีพนักงานค้างสอบ Post-test (พนักงานทุกคนทำ Post-test ครบหมดแล้ว)
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    records.forEach(rec => {
+      const tr = document.createElement('tr');
+      const calcPercent = (typeof rec.score === 'number' ? Math.round((rec.score / (rec.maxScore || 20)) * 100) : rec.percentage);
+
+      tr.innerHTML = `
+        <td>${rec.timestamp || '-'} (Pre-test)</td>
+        <td><strong>${rec.empId || '-'}</strong></td>
+        <td>${rec.fullName || '-'}</td>
+        <td>${rec.department || '-'}</td>
+        <td><span class="badge-pill bg-warning text-dark"><i class="fa-solid fa-clock"></i> รอดำเนินการ Post-test</span></td>
+        <td>Pre-test: <strong>${rec.score}</strong> / 20</td>
+        <td>${calcPercent}%</td>
+        <td><span class="badge-pill bg-neutral">รอทำ Post-test</span></td>
+        <td><span class="badge-status-fail" style="background:#fef3c7; color:#92400e; border-color:#f59e0b;"><i class="fa-solid fa-hourglass-half"></i> ยังไม่สอบ Post-test</span></td>
+      `;
+      admTableBody.appendChild(tr);
+    });
   }
 
   function renderAdminTableRows(records) {
