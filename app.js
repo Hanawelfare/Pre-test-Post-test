@@ -46,11 +46,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnAdminLogout = document.getElementById('btn-admin-logout');
   const btnAdminOpenEditor = document.getElementById('btn-admin-open-editor');
   
-  // Admin Dashboard Elements
+  // Admin Dashboard Filter Elements
   const admTotalTakers = document.getElementById('adm-total-takers');
   const admPassCount = document.getElementById('adm-pass-count');
   const admFailCount = document.getElementById('adm-fail-count');
   const admAvgScore = document.getElementById('adm-avg-score');
+  const admMetricsTitle = document.getElementById('adm-metrics-title');
+
   const admSearchInput = document.getElementById('adm-search-input');
   const admFilterType = document.getElementById('adm-filter-type');
   const admFilterStatus = document.getElementById('adm-filter-status');
@@ -696,22 +698,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // ADMIN DASHBOARD CONTROLLER & RENDERER
+  // ADMIN DASHBOARD CONTROLLER & RENDERER (STRICT 1 EMP ID = 1 PERSON COUNT & ATTEMPT TRACKING)
   function renderAdminDashboard() {
-    const logs = quizEngine.submissionsLog;
-    const total = logs.length;
-    const passCount = logs.filter(l => (typeof l.score === 'number' ? l.score >= 14 : l.isPassed)).length;
-    const failCount = total - passCount;
-    const passPercent = total > 0 ? ((passCount / total) * 100).toFixed(1) : '0';
-    const failPercent = total > 0 ? ((failCount / total) * 100).toFixed(1) : '0';
-
-    const avgScore = total > 0 ? (logs.reduce((sum, l) => sum + (l.score || 0), 0) / total).toFixed(1) : '0';
-
-    admTotalTakers.textContent = `${total} คน`;
-    admPassCount.textContent = `${passCount} คน (${passPercent}%)`;
-    admFailCount.textContent = `${failCount} คน (${failPercent}%)`;
-    admAvgScore.textContent = `${avgScore} / 20`;
-
     filterAdminDashboardTable();
   }
 
@@ -720,7 +708,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const typeFilter = admFilterType.value;
     const statusFilter = admFilterStatus.value;
 
-    const filtered = quizEngine.submissionsLog.filter(item => {
+    // Filter table rows matching current search/filter
+    const filteredRows = quizEngine.submissionsLog.filter(item => {
       const matchSearch = !search || 
         (item.empId && item.empId.toLowerCase().includes(search)) ||
         (item.fullName && item.fullName.toLowerCase().includes(search)) ||
@@ -736,7 +725,48 @@ document.addEventListener('DOMContentLoaded', () => {
       return matchSearch && matchType && matchStatus;
     });
 
-    renderAdminTableRows(filtered);
+    // 📌 Calculate UNIQUE Employee Stats STRICTLY (1 รหัสพนักงาน = 1 คน)
+    // Group filtered records STRICTLY by clean employee ID (store latest submission for that employee)
+    const uniqueEmpMap = new Map();
+    filteredRows.forEach(item => {
+      const cleanId = quizEngine.cleanEmpId(item.empId);
+      if (!cleanId) return;
+      
+      // Store latest submission per employee ID
+      if (!uniqueEmpMap.has(cleanId)) {
+        uniqueEmpMap.set(cleanId, item);
+      }
+    });
+
+    const uniqueEmployeesList = Array.from(uniqueEmpMap.values());
+    const totalUnique = uniqueEmployeesList.length;
+    const passCount = uniqueEmployeesList.filter(l => (typeof l.score === 'number' ? l.score >= 14 : l.isPassed)).length;
+    const failCount = totalUnique - passCount;
+    const passPercent = totalUnique > 0 ? ((passCount / totalUnique) * 100).toFixed(1) : '0.0';
+    const failPercent = totalUnique > 0 ? ((failCount / totalUnique) * 100).toFixed(1) : '0.0';
+    const avgScore = totalUnique > 0 ? (uniqueEmployeesList.reduce((sum, l) => sum + (l.score || 0), 0) / totalUnique).toFixed(1) : '0.0';
+
+    // Update Header Metric Title Badge
+    if (admMetricsTitle) {
+      if (typeFilter === 'Pre-test') {
+        admMetricsTitle.className = "badge-pill bg-primary-soft text-primary";
+        admMetricsTitle.innerHTML = `<i class="fa-solid fa-file-signature"></i> สรุปผล Pre-test (นับ 1 รหัสพนักงาน = 1 คน)`;
+      } else if (typeFilter === 'Post-test') {
+        admMetricsTitle.className = "badge-pill bg-success text-white";
+        admMetricsTitle.innerHTML = `<i class="fa-solid fa-award"></i> สรุปผล Post-test (นับ 1 รหัสพนักงาน = 1 คน)`;
+      } else {
+        admMetricsTitle.className = "badge-pill bg-primary-soft text-primary";
+        admMetricsTitle.innerHTML = `<i class="fa-solid fa-chart-pie"></i> สรุปผลการสอบรวม (นับ 1 รหัสพนักงาน = 1 คน)`;
+      }
+    }
+
+    // Update Top 4 Metric Cards (Strict 1 Emp ID = 1 Person)
+    if (admTotalTakers) admTotalTakers.textContent = `${totalUnique} คน`;
+    if (admPassCount) admPassCount.textContent = `${passCount} คน (${passPercent}%)`;
+    if (admFailCount) admFailCount.textContent = `${failCount} คน (${failPercent}%)`;
+    if (admAvgScore) admAvgScore.textContent = `${avgScore} / 20`;
+
+    renderAdminTableRows(filteredRows);
   }
 
   function renderAdminTableRows(records) {
@@ -744,7 +774,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (records.length === 0) {
       admTableBody.innerHTML = `
         <tr>
-          <td colspan="8" class="text-center" style="padding: 2rem; color: #94a3b8;">
+          <td colspan="9" class="text-center" style="padding: 2rem; color: #94a3b8;">
             <i class="fa-solid fa-inbox" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
             ยังไม่มีข้อมูลผลการสอบที่บันทึกไว้ในระบบ
           </td>
@@ -759,6 +789,17 @@ document.addEventListener('DOMContentLoaded', () => {
       const isPass = (typeof rec.score === 'number' ? rec.score >= 14 : rec.isPassed);
       const calcPercent = (typeof rec.score === 'number' ? Math.round((rec.score / (rec.maxScore || 20)) * 100) : rec.percentage);
 
+      const attemptNum = rec.attemptNumber || 1;
+      let attemptBadgeClass = "bg-neutral text-muted";
+      let attemptText = `รอบที่ ${attemptNum}`;
+      if (isPass) {
+        attemptBadgeClass = "bg-success text-white";
+        attemptText = `รอบที่ ${attemptNum} (ผ่าน 🎉)`;
+      } else if (attemptNum > 1) {
+        attemptBadgeClass = "bg-warning text-dark";
+        attemptText = `รอบที่ ${attemptNum} (ทำซ้ำ)`;
+      }
+
       const statusBadge = isPass 
         ? `<span class="badge-status-pass">ผ่าน (PASS)</span>`
         : `<span class="badge-status-fail">ไม่ผ่าน (FAIL)</span>`;
@@ -771,6 +812,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <td><span class="badge-pill ${rec.testType === 'Pre-test' ? 'bg-primary-soft' : 'bg-success'}">${rec.testType}</span></td>
         <td><strong>${rec.score}</strong> / ${rec.maxScore || 20}</td>
         <td>${calcPercent}%</td>
+        <td><span class="badge-pill ${attemptBadgeClass}">${attemptText}</span></td>
         <td>${statusBadge}</td>
       `;
       admTableBody.appendChild(tr);
@@ -784,11 +826,12 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    let csvContent = "\uFEFFวัน-เวลา,รหัสพนักงาน,ชื่อ-นามสกุล,แผนก,ประเภทข้อสอบ,คะแนนที่ได้,คะแนนเต็ม,คิดเป็น %,ผลการสอบ\n";
+    let csvContent = "\uFEFFวัน-เวลา,รหัสพนักงาน,ชื่อ-นามสกุล,แผนก,ประเภทข้อสอบ,คะแนนที่ได้,คะแนนเต็ม,คิดเป็น %,รอบที่สอบ,ผลการสอบ\n";
     logs.forEach(l => {
       const isPass = (typeof l.score === 'number' ? l.score >= 14 : l.isPassed);
       const calcPercent = (typeof l.score === 'number' ? Math.round((l.score / (l.maxScore || 20)) * 100) : l.percentage);
-      csvContent += `"${l.timestamp}","${l.empId}","${l.fullName}","${l.department}","${l.testType}",${l.score},${l.maxScore || 20},"${calcPercent}%","${isPass ? 'ผ่าน' : 'ไม่ผ่าน'}"\n`;
+      const attemptNum = l.attemptNumber || 1;
+      csvContent += `"${l.timestamp}","${l.empId}","${l.fullName}","${l.department}","${l.testType}",${l.score},${l.maxScore || 20},"${calcPercent}%","รอบที่ ${attemptNum}","${isPass ? 'ผ่าน' : 'ไม่ผ่าน'}"\n`;
     });
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
