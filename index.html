@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ระบบข้อสอบ Pre-test & Post-test - วินัยและการลงโทษ</title>
+  <title>แบบวัดผลการปฐมนิเทศ พนักงานรายวัน (เกณฑ์ผ่าน 80%)</title>
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- CSS Styles with Cache Buster -->
-  <link rel="stylesheet" href="./style.css?v=1.4">
+  <!-- CSS Styles -->
+  <link rel="stylesheet" href="./style.css?v=2.0">
 </head>
 <body>
   <div class="background-decor">
@@ -21,216 +21,186 @@
   </div>
 
   <div class="app-container">
-    <!-- System Switcher Banner -->
-    <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(255, 255, 255, 0.15); padding: 0.6rem 1.2rem; border-radius: 12px; margin-bottom: 1rem; font-size: 0.9rem; flex-wrap: wrap; gap: 0.5rem;">
+    <!-- Top System Switch Banner -->
+    <div class="system-switch-bar">
       <div>
-        <span style="color: #94a3b8;"><i class="fa-solid fa-layer-group"></i> ระบบข้อสอบเดิม: วินัยและการลงโทษ (20 ข้อ)</span>
+        <a href="../index.html"><i class="fa-solid fa-arrow-left"></i> กลับไประบบข้อสอบวินัยและการลงโทษ (เดิม)</a>
       </div>
       <div>
-        <a href="./orientation/" style="color: #34d399; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 0.4rem;">
-          <i class="fa-solid fa-arrow-up-right-from-square"></i> ไปยังแบบวัดผลการปฐมนิเทศ พนักงานรายวัน (ใหม่ 25 ข้อ) ➜
-        </a>
+        <span class="badge-pill bg-primary-soft">
+          <i class="fa-solid fa-sparkles"></i> ระบบใหม่: ปฐมนิเทศพนักงานรายวัน (25 ข้อ)
+        </span>
       </div>
     </div>
 
-    <!-- Navbar -->
+    <!-- Main Navbar -->
     <header class="navbar">
       <div class="brand">
         <div class="brand-icon">
-          <i class="fa-solid fa-graduation-cap"></i>
+          <i class="fa-solid fa-user-check"></i>
         </div>
         <div class="brand-text">
-          <h1>Pre-test & Post-test System</h1>
-          <p>ระบบสอบออนไลน์สลับข้อสอบวัดความรู้ทางวินัย</p>
+          <h1>แบบวัดผลการปฐมนิเทศ พนักงานรายวัน</h1>
+          <p>ระบบประเมินผลออนไลน์หลังปฐมนิเทศ (เกณฑ์ผ่าน 80% ขึ้นไป)</p>
         </div>
       </div>
-      <div class="header-actions">
-        <!-- 📌 ปุ่มตั้งค่า Google Sheet จะถูกซ่อนไว้เป็นพิเศษ และแสดงเฉพาะในหน้าผู้ดูแลระบบ (Admin) เท่านั้น -->
-        <button id="btn-config-gs" class="btn btn-outline btn-sm hidden" title="ตั้งค่าการเชื่อมต่อ Google Sheets">
-          <i class="fa-solid fa-link"></i> <span id="gs-status-label">Google Sheet Sync</span>
+
+      <!-- Navigation Tabs (Accessible to both Employees & Admins) -->
+      <div class="nav-tabs-group">
+        <button id="nav-btn-exam" class="nav-tab-btn active">
+          <i class="fa-solid fa-pen-to-square"></i> เข้าทำข้อสอบ
+        </button>
+        <button id="nav-btn-dashboard" class="nav-tab-btn">
+          <i class="fa-solid fa-chart-pie"></i> แดชบอร์ดติดตามผลสอบ
+        </button>
+        <button id="nav-btn-admin" class="nav-tab-btn">
+          <i class="fa-solid fa-gear"></i> ผู้ดูแลระบบ
         </button>
       </div>
     </header>
 
-    <!-- Main Content Views -->
+    <!-- Main Content Screens -->
     <main class="main-content">
       
-      <!-- SCREEN 1: LOGIN MODE SELECTOR (EMPLOYEE vs ADMIN) -->
+      <!-- SCREEN 1: EMPLOYEE LOGIN / REGISTRATION -->
       <section id="screen-login" class="screen-card">
-        
-        <!-- Tabs Selector -->
-        <div class="mode-switch-tabs">
-          <button id="tab-employee-mode" class="mode-tab active">
-            <i class="fa-solid fa-user"></i> สำหรับพนักงาน (เข้าทำข้อสอบ)
-          </button>
-          <button id="tab-admin-mode" class="mode-tab">
-            <i class="fa-solid fa-user-gear"></i> สำหรับผู้ดูแลระบบ (Admin)
-          </button>
+        <div class="card-header text-center">
+          <div class="badge-pill bg-primary-soft">
+            <i class="fa-solid fa-building-user"></i> สำหรับพนักงานใหม่ (ทำหลังปฐมนิเทศเสร็จสิ้น)
+          </div>
+          <h2>กรอกรหัสพนักงานเพื่อเริ่มทำข้อสอบ</h2>
+          <p class="subtitle">ระบบจะค้นหาชื่อ-นามสกุล และแผนกให้อัตโนมัติจากฐานข้อมูล Google Sheet</p>
         </div>
 
-        <!-- EMPLOYEE LOGIN FORM -->
-        <div id="view-employee-login">
-          <div class="card-header text-center">
-            <div class="badge-pill bg-primary-soft text-primary">
-              <i class="fa-solid fa-shield-halved"></i> แบบทดสอบวัดความรู้ทางวินัยและมาตรการลงโทษ
-            </div>
-            <h2>กรุณากรอกข้อมูลพนักงานเพื่อเข้าสอบ</h2>
-            <p class="subtitle">ระบบจะค้นหาชื่อ-นามสกุล และแผนกให้อัตโนมัติจากรหัสพนักงาน</p>
-          </div>
-
-          <form id="form-login" class="login-form">
-            <!-- Choice Test Type -->
-            <div class="form-group text-center">
-              <label class="form-label-bold">เลือกประเภทแบบทดสอบ <span class="required">*</span></label>
-              <div class="test-type-selector">
-                <label class="radio-card active" id="type-pre-label">
-                  <input type="radio" name="testType" value="Pre-test" id="radio-pre-test" checked>
-                  <div class="radio-content">
-                    <i class="fa-solid fa-file-signature"></i>
-                    <span class="radio-title">Pre-test</span>
-                    <span class="radio-desc">ก่อนการอบรม</span>
-                    <span id="badge-pre-done" class="badge-pill bg-success hidden" style="margin-top:0.4rem; font-size:0.75rem;"><i class="fa-solid fa-check"></i> ทำแล้ว</span>
-                  </div>
-                </label>
-                <label class="radio-card" id="type-post-label">
-                  <input type="radio" name="testType" value="Post-test" id="radio-post-test">
-                  <div class="radio-content">
-                    <i class="fa-solid fa-award"></i>
-                    <span class="radio-title">Post-test</span>
-                    <span class="radio-desc">หลังการอบรม</span>
-                    <span id="badge-post-done" class="badge-pill bg-success hidden" style="margin-top:0.4rem; font-size:0.75rem;"><i class="fa-solid fa-check"></i> ทำแล้ว</span>
-                  </div>
-                </label>
-              </div>
-              <small id="pretest-completed-notice" class="help-text text-warning hidden" style="margin-top:0.75rem; font-size:0.85rem;">
-                <i class="fa-solid fa-circle-check text-success"></i> คุณได้ทำ Pre-test เรียบร้อยแล้ว ระบบสลับมาที่ <strong>Post-test</strong> ให้โดยอัตโนมัติ
-              </small>
-            </div>
-
-            <div class="form-grid">
-              <!-- Employee ID -->
-              <div class="form-group">
-                <label for="input-emp-id">รหัสพนักงาน <span class="required">*</span></label>
-                <div class="input-with-icon">
-                  <i class="fa-solid fa-id-card input-icon"></i>
-                  <input type="text" id="input-emp-id" placeholder="ตัวอย่าง: EMP001 หรือ 65001" required autocomplete="off">
-                  <span id="lookup-spinner" class="spinner hidden"><i class="fa-solid fa-spinner fa-spin"></i></span>
-                </div>
-                <small class="help-text"><i class="fa-solid fa-circle-info"></i> พิมพ์รหัสพนักงานแล้วกด Tab หรือคลิกด้านนอกเพื่อ Auto-fill</small>
-              </div>
-
-              <!-- Full Name (Autofilled) -->
-              <div class="form-group">
-                <label for="input-fullname">ชื่อ - นามสกุล <span class="required">*</span></label>
-                <div class="input-with-icon">
-                  <i class="fa-solid fa-user input-icon"></i>
-                  <input type="text" id="input-fullname" placeholder="ระบุชื่อ-นามสกุล" required>
-                </div>
-                <span id="autofill-badge-name" class="autofill-tag hidden"><i class="fa-solid fa-circle-check"></i> Auto-filled</span>
-              </div>
-
-              <!-- Department (Autofilled) -->
-              <div class="form-group form-full-width">
-                <label for="input-department">แผนก / ฝ่าย <span class="required">*</span></label>
-                <div class="input-with-icon">
-                  <i class="fa-solid fa-building input-icon"></i>
-                  <input type="text" id="input-department" placeholder="ระบุแผนก" required>
-                </div>
-                <span id="autofill-badge-dept" class="autofill-tag hidden"><i class="fa-solid fa-circle-check"></i> Auto-filled</span>
-              </div>
-            </div>
-
-            <!-- Rules Summary Banner -->
-            <div class="rules-card">
-              <h4><i class="fa-solid fa-circle-exclamation text-warning"></i> กติกาการให้คะแนน</h4>
-              <ul class="rules-list">
-                <li><span class="badge-rule bg-success">+1 คะแนน</span> ตอบถูกต้อง</li>
-                <li><span class="badge-rule bg-neutral">0 คะแนน</span> ข้าม / ไม่ตอบข้อนั้น</li>
-                <li><span class="badge-rule bg-danger">-1 คะแนน</span> ตอบผิด (หัก 1 คะแนน)</li>
-                <li><span class="badge-rule bg-info"><i class="fa-solid fa-shuffle"></i> ข้อสอบสลับโจทย์</span> ระบบสลับลำดับข้อป้องกันการลอกกัน</li>
-              </ul>
-            </div>
-
-            <button type="submit" class="btn btn-primary btn-block btn-lg" id="btn-start-exam">
-              <span>เริ่มทำข้อสอบ</span> <i class="fa-solid fa-arrow-right"></i>
-            </button>
-          </form>
-        </div>
-
-        <!-- ADMIN LOGIN FORM -->
-        <div id="view-admin-login" class="hidden">
-          <div class="card-header text-center">
-            <div class="badge-pill bg-primary-soft text-primary">
-              <i class="fa-solid fa-lock"></i> ระบบผู้ดูแลระบบ (Admin Portal)
-            </div>
-            <h2>เข้าสู่ระบบเพื่อดูผลการสอบและจัดการข้อสอบ</h2>
-            <p class="subtitle">กรุณากรอกรหัสผ่านผู้ดูแลระบบเพื่อเข้าสู่ระบบ</p>
-          </div>
-
-          <form id="form-admin-login" class="login-form">
-            <div class="form-group">
-              <label for="input-admin-pass">รหัสผ่านแอดมิน (Admin Password) <span class="required">*</span></label>
+        <form id="form-login" class="login-form">
+          <div class="form-grid">
+            <!-- Employee ID -->
+            <div class="form-group form-full-width">
+              <label for="input-emp-id">รหัสพนักงาน (Employee ID) <span class="required">*</span></label>
               <div class="input-with-icon">
-                <i class="fa-solid fa-key input-icon"></i>
-                <input type="password" id="input-admin-pass" placeholder="กรอกรหัสผ่านแอดมิน" required>
+                <i class="fa-solid fa-id-card input-icon"></i>
+                <input type="text" id="input-emp-id" placeholder="ตัวอย่าง: 088193, 090118 หรือ รหัสพนักงานของคุณ" required autocomplete="off">
+                <span id="lookup-spinner" class="spinner hidden"><i class="fa-solid fa-spinner fa-spin"></i></span>
               </div>
+              <small class="help-text"><i class="fa-solid fa-circle-info"></i> พิมพ์รหัสพนักงานแล้วคลิกด้านนอกหรือกด Tab เพื่อ Auto-fill ข้อมูล</small>
             </div>
 
-            <button type="submit" class="btn btn-primary btn-block btn-lg">
-              <i class="fa-solid fa-right-to-bracket"></i> เข้าสู่หน้า Admin Dashboard
-            </button>
-          </form>
-        </div>
+            <!-- Full Name (Autofilled) -->
+            <div class="form-group">
+              <label for="input-fullname">ชื่อ - นามสกุล <span class="required">*</span></label>
+              <div class="input-with-icon">
+                <i class="fa-solid fa-user input-icon"></i>
+                <input type="text" id="input-fullname" placeholder="ระบุชื่อ-นามสกุล" required>
+              </div>
+              <span id="autofill-badge-name" class="autofill-tag hidden"><i class="fa-solid fa-circle-check"></i> Auto-filled จากชีท</span>
+            </div>
 
+            <!-- Department (Autofilled) -->
+            <div class="form-group">
+              <label for="input-department">แผนก / ฝ่าย <span class="required">*</span></label>
+              <div class="input-with-icon">
+                <i class="fa-solid fa-building input-icon"></i>
+                <input type="text" id="input-department" placeholder="ระบุแผนก" required>
+              </div>
+              <span id="autofill-badge-dept" class="autofill-tag hidden"><i class="fa-solid fa-circle-check"></i> Auto-filled จากชีท</span>
+            </div>
+          </div>
+
+          <!-- Existing Attempt Notice (if already took the test before) -->
+          <div id="past-attempt-banner" class="alert hidden" style="background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.5rem; color: #c7d2fe;">
+            <i class="fa-solid fa-clock-rotate-left"></i> <span id="past-attempt-text">คุณเคยทำข้อสอบนี้มาแล้ว</span>
+          </div>
+
+          <!-- Rules Summary Banner -->
+          <div class="rules-card">
+            <h4><i class="fa-solid fa-circle-info text-primary"></i> กติกาและเกณฑ์การสอบ (สำคัญ)</h4>
+            <ul class="rules-list">
+              <li><span class="badge-rule bg-danger" style="background:#ef4444; color:white;">* ต้องตอบครบ 25 ข้อ</span> ห้ามข้ามส่ง (ต้องตอบคำถามให้ครบทุกข้อ)</li>
+              <li><span class="badge-rule bg-warning" style="color:#000;">ข้ามข้อชั่วคราวได้</span> ข้ามไปตอบข้ออื่นได้ แต่ต้องวนกลับมาตอบให้ครบก่อนส่ง</li>
+              <li><span class="badge-rule bg-accent-soft" style="color:#a5b4fc;"><i class="fa-solid fa-shuffle"></i> สลับโจทย์เฉพาะบุคคล</span> ข้อสอบสลับข้ออัตโนมัติ ป้องกันการลอกกัน</li>
+              <li><span class="badge-rule bg-success">+1 คะแนน / ข้อ</span> ตอบถูกได้ 1 คะแนน (ตอบผิดได้ 0 คะแนน)</li>
+              <li><span class="badge-rule bg-warning" style="color:#000;">เกณฑ์ผ่าน 80%</span> ต้องได้ 20 คะแนนขึ้นไป (เต็ม 25 คะแนน)</li>
+              <li><span class="badge-rule bg-neutral"><i class="fa-solid fa-rotate-right"></i> สอบซ้ำได้</span> หากไม่ผ่าน 80% มีปุ่มให้ทำใหม่</li>
+            </ul>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block btn-lg" id="btn-start-exam">
+            <span>เริ่มทำแบบวัดผลการปฐมนิเทศ</span> <i class="fa-solid fa-arrow-right"></i>
+          </button>
+        </form>
       </section>
 
       <!-- SCREEN 2: EXAM QUIZ INTERFACE -->
       <section id="screen-quiz" class="screen-card hidden">
-        <!-- Exam Info Header -->
+        <!-- Quiz Header Bar -->
         <div class="quiz-header-bar">
           <div class="user-meta-chip">
-            <i class="fa-solid fa-user-circle"></i>
+            <i class="fa-solid fa-circle-user"></i>
             <div class="user-meta-info">
-              <strong id="quiz-user-name">นาย สมชาย ใจดี</strong>
-              <span id="quiz-user-dept">ฝ่ายทรัพยากรมนุษย์ | <span id="quiz-test-type-badge" class="badge-pill bg-primary-soft">Pre-test</span></span>
+              <strong id="quiz-user-name">ชื่อผู้เข้าสอบ</strong>
+              <span id="quiz-user-dept">แผนก | รหัสพนักงาน: <span id="quiz-user-empid">-</span> | <span id="quiz-attempt-badge" class="badge-pill bg-accent-soft">รอบที่ 1</span></span>
             </div>
           </div>
 
           <div class="quiz-progress-wrapper">
             <div class="quiz-progress-text">
               <span>ความคืบหน้า</span>
-              <strong id="quiz-progress-num">1 / 20</strong>
+              <strong id="quiz-progress-num">1 / 25</strong>
             </div>
             <div class="progress-bar-bg">
-              <div id="quiz-progress-fill" class="progress-bar-fill" style="width: 5%;"></div>
+              <div id="quiz-progress-fill" class="progress-bar-fill" style="width: 4%;"></div>
             </div>
           </div>
         </div>
 
-        <!-- Question Navigation Matrix Toggle -->
-        <div class="matrix-toggle-bar">
-          <span>ข้อสอบทั้งหมด 20 ข้อ (สลับโจทย์)</span>
-          <button id="btn-toggle-matrix" class="btn btn-sm btn-ghost">
-            <i class="fa-solid fa-table-cells"></i> แผงเลือกข้อ <i class="fa-solid fa-chevron-down"></i>
-          </button>
-        </div>
+        <!-- Anti-Cheating & Skipped Question Tracker Bar -->
+        <div class="skipped-tracker-card">
+          <div class="skipped-tracker-header">
+            <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+              <span class="badge-pill bg-accent-soft" style="font-size:0.8rem;">
+                <i class="fa-solid fa-shuffle"></i> ข้อสอบสลับข้อเฉพาะบุคคล (ป้องกันการลอก)
+              </span>
+              <span id="tracker-status-pill" class="badge-pill bg-warning text-dark" style="font-size:0.8rem;">
+                <i class="fa-solid fa-triangle-exclamation"></i> ข้ามไป/ยังไม่ตอบ <strong id="tracker-skipped-count">25</strong> ข้อ
+              </span>
+            </div>
 
-        <!-- Matrix Sheet Dropdown -->
-        <div id="question-matrix-panel" class="question-matrix-panel hidden">
+            <!-- Visual Legend -->
+            <div class="matrix-legend">
+              <span class="matrix-legend-item"><span class="matrix-dot dot-answered"></span> ตอบแล้ว</span>
+              <span class="matrix-legend-item"><span class="matrix-dot dot-skipped"></span> ข้ามไป (ยังไม่ตอบ)</span>
+              <span class="matrix-legend-item"><span class="matrix-dot dot-current"></span> ข้อปัจจุบัน</span>
+            </div>
+          </div>
+
+          <!-- Question Matrix Grid (25 questions) -->
           <div class="matrix-grid" id="matrix-buttons-container">
-            <!-- Dynamic 1..20 buttons -->
+            <!-- Dynamic 1..25 buttons -->
+          </div>
+
+          <!-- Live Skipped Questions Alert & Pills List -->
+          <div class="skipped-pills-wrapper" id="skipped-pills-bar">
+            <span class="skipped-pills-label" id="skipped-pills-label">
+              <i class="fa-solid fa-triangle-exclamation"></i> ข้อที่ข้ามไป (คลิกเพื่อวนกลับไปตอบ):
+            </span>
+            <div class="skipped-pills-list" id="skipped-pills-container">
+              <!-- Dynamically populated pills -->
+            </div>
+            <button type="button" id="btn-jump-next-skipped" class="btn btn-warning-soft btn-sm" style="margin-left:auto;">
+              <i class="fa-solid fa-arrow-rotate-right"></i> วนไปตอบข้อที่ข้ามถัดไป
+            </button>
           </div>
         </div>
 
-        <!-- Single Question Container Card -->
+        <!-- Question Card -->
         <div class="question-card">
           <div class="question-header">
-            <span class="question-number-tag" id="q-number-label">ข้อที่ 1</span>
+            <span class="question-number-tag" id="q-number-label">ข้อที่ 1 จาก 25</span>
             <span class="status-answered-tag" id="q-status-tag"><i class="fa-regular fa-circle"></i> ยังไม่ได้ตอบ</span>
           </div>
 
           <h3 class="question-title" id="q-text-body">
-            1. หลักขอบเขตทางวินัย คือ หลักอาณาเขต หลักวันและเวลาทำงาน หลักความจำเป็น
+            ข้อความคำถาม
           </h3>
 
           <!-- Options Container -->
@@ -238,22 +208,26 @@
             <!-- True / False options generated dynamically -->
           </div>
 
-          <!-- Unselect Choice Option -->
+          <!-- Clear Answer Option -->
           <div class="clear-answer-wrapper">
             <button type="button" id="btn-clear-answer" class="btn-clear-choice hidden">
-              <i class="fa-solid fa-rotate-left"></i> ยกเลิกคำตอบในข้อนี้ (ไม่ตอบ = 0 คะแนน)
+              <i class="fa-solid fa-rotate-left"></i> ล้างคำตอบเพื่อข้ามข้อนี้ไปก่อน (ต้องวนกลับมาตอบก่อนส่ง)
             </button>
           </div>
         </div>
 
-        <!-- Exam Controls Footer -->
+        <!-- Quiz Footer Controls -->
         <div class="quiz-footer-controls">
           <button id="btn-prev-q" class="btn btn-outline">
             <i class="fa-solid fa-chevron-left"></i> ข้อก่อนหน้า
           </button>
 
+          <button type="button" id="btn-footer-next-skipped" class="btn btn-outline btn-sm">
+            <i class="fa-solid fa-arrow-rotate-right text-warning"></i> วนไปข้อที่ข้าม (<span id="footer-skipped-count">25</span>)
+          </button>
+
           <span class="question-summary-badge" id="answered-count-badge">
-            ตอบแล้ว 0/20 ข้อ
+            ตอบแล้ว 0/25 ข้อ
           </span>
 
           <button id="btn-next-q" class="btn btn-primary">
@@ -261,12 +235,12 @@
           </button>
 
           <button id="btn-submit-exam" class="btn btn-success hidden">
-            <i class="fa-solid fa-paper-plane"></i> ส่งข้อสอบ
+            <i class="fa-solid fa-paper-plane"></i> ตรวจและส่งข้อสอบ
           </button>
         </div>
       </section>
 
-      <!-- SCREEN 3: RESULT SCORE & DETAILED REVIEW -->
+      <!-- SCREEN 3: RESULT SCREEN (STRICT: Total Score and % ONLY) -->
       <section id="screen-result" class="screen-card hidden">
         <div class="result-hero text-center">
           <div id="result-status-icon" class="result-badge-icon pass">
@@ -274,164 +248,135 @@
           </div>
           
           <h2 id="result-title">ผลการสอบ: ผ่านเกณฑ์ (PASS)</h2>
-          <p id="result-subtitle">คุณทำคะแนนได้ตามเกณฑ์ประเมินที่กำหนดไว้</p>
+          <p id="result-subtitle" class="subtitle">ยินดีด้วย! คุณผ่านเกณฑ์การทดสอบ 80% ขึ้นไป</p>
 
           <!-- Big Score Board -->
           <div class="score-card-hero">
             <div class="score-main-number">
-              <span id="res-score-value">18</span>
-              <span class="score-max">/ 20</span>
+              <span id="res-score-value">22</span>
+              <span class="score-max">/ 25</span>
             </div>
-            <div class="score-percentage-pill" id="res-score-percent">90.0%</div>
+            <div class="score-percentage-pill pass" id="res-score-percent">88.0%</div>
+          </div>
+
+          <!-- Attempt Information -->
+          <div>
+            <div class="attempt-info-box">
+              <i class="fa-solid fa-calendar-check text-primary"></i>
+              <span id="res-attempt-info">การสอบครั้งที่ 1</span>
+            </div>
           </div>
 
           <!-- Google Sheet Sync Status Indicator -->
           <div class="sync-status-bar" id="sync-status-box">
             <i class="fa-solid fa-sync fa-spin" id="sync-icon"></i>
-            <span id="sync-status-text">กำลังส่งผลสอบไปยัง Google Sheet...</span>
+            <span id="sync-status-text">กำลังบันทึกผลสอบไปยัง Google Sheet...</span>
           </div>
 
-          <!-- Metrics Stat Grid -->
-          <div class="stats-grid">
-            <div class="stat-box success">
-              <div class="stat-icon"><i class="fa-solid fa-check"></i></div>
-              <div class="stat-info">
-                <strong id="stat-correct-count">13 ข้อ</strong>
-                <span id="stat-correct-sub">ตอบถูก (+13)</span>
-              </div>
-            </div>
-            <div class="stat-box danger">
-              <div class="stat-icon"><i class="fa-solid fa-xmark"></i></div>
-              <div class="stat-info">
-                <strong id="stat-wrong-count">7 ข้อ</strong>
-                <span id="stat-wrong-sub">ตอบผิด (-7)</span>
-              </div>
-            </div>
-            <div class="stat-box neutral">
-              <div class="stat-icon"><i class="fa-solid fa-minus"></i></div>
-              <div class="stat-info">
-                <strong id="stat-unanswered-count">0 ข้อ</strong>
-                <span id="stat-unanswered-sub">ไม่ได้ตอบ (0)</span>
-              </div>
-            </div>
-          </div>
-        </div>
+          <!-- Action Buttons -->
+          <div class="result-actions">
+            <!-- Retest Button (Shown ONLY if score < 80%) -->
+            <button id="btn-retest-exam" class="btn btn-retest hidden">
+              <i class="fa-solid fa-rotate-right"></i> <span id="retest-button-label">ทำข้อสอบใหม่ (ครั้งที่ 2)</span>
+            </button>
 
-        <!-- Action Bar -->
-        <div class="result-actions">
-          <button id="btn-restart-exam" class="btn btn-primary btn-lg">
-            <i class="fa-solid fa-rotate"></i> ทำข้อสอบอีกครั้ง / กลับหน้าหลัก
-          </button>
-          <button id="btn-toggle-review" class="btn btn-outline btn-lg">
-            <i class="fa-solid fa-list-check"></i> ดูเฉลยและคำอธิบายอย่างละเอียด
-          </button>
-        </div>
+            <!-- Dashboard Button -->
+            <button id="btn-view-dashboard" class="btn btn-outline btn-lg">
+              <i class="fa-solid fa-chart-pie"></i> ดูแดชบอร์ดติดตามผลสอบ
+            </button>
 
-        <!-- Review Section (Expandable) -->
-        <div id="review-section" class="review-section hidden">
-          <h3 class="review-title"><i class="fa-solid fa-square-poll-vertical"></i> สรุปผลการตอบและเฉลยรายข้อ</h3>
-          <div id="review-cards-list" class="review-cards-list">
-            <!-- Generated dynamically -->
+            <!-- Back Home Button -->
+            <button id="btn-back-home" class="btn btn-outline btn-lg">
+              <i class="fa-solid fa-house"></i> กลับหน้าหลัก
+            </button>
           </div>
         </div>
       </section>
 
-      <!-- SCREEN 4: ADMIN DASHBOARD (REAL-TIME RESULTS & METRICS) -->
-      <section id="screen-admin" class="screen-card hidden">
-        <div class="admin-dashboard-header">
-          <h2><i class="fa-solid fa-chart-line text-primary"></i> รายงานผลการสอบผู้เข้าสอบ (Admin Dashboard)</h2>
-          <div class="header-actions">
-            <button id="btn-admin-open-editor" class="btn btn-outline btn-sm">
-              <i class="fa-solid fa-pen-to-square"></i> แก้ไขคำถาม & เฉลย
-            </button>
-            <button id="btn-admin-logout" class="btn btn-danger-soft btn-sm">
-              <i class="fa-solid fa-right-from-bracket"></i> ออกจากระบบ
+      <!-- SCREEN 4: LIVE DASHBOARD (Accessible to both Employees & Admins) -->
+      <section id="screen-dashboard" class="screen-card hidden">
+        <div class="dashboard-top-bar">
+          <div>
+            <h2><i class="fa-solid fa-chart-line text-primary"></i> แดชบอร์ดติดตามผลสอบปฐมนิเทศ</h2>
+            <p class="subtitle">ติดตามสถานะแบบเรียลไทม์: ใครสอบผ่าน ใครยังไม่ผ่าน และใครยังไม่เสร็จ</p>
+          </div>
+          <div>
+            <button id="btn-refresh-dashboard" class="btn btn-outline btn-sm">
+              <i class="fa-solid fa-arrows-rotate"></i> รีเฟรชข้อมูล
             </button>
           </div>
         </div>
 
-        <!-- Dynamic Overview Metrics Grid (Updates automatically based on filters selected) -->
-        <div class="metrics-block">
-          <div class="metrics-block-header">
-            <span id="adm-metrics-title" class="badge-pill bg-primary-soft text-primary">
-              <i class="fa-solid fa-chart-pie"></i> สรุปผลการสอบ (คำนวณอัตโนมัติจากตัวกรองที่เลือก)
-            </span>
+        <!-- 4 Summary Metric Cards -->
+        <div class="dashboard-metrics-grid">
+          <div class="dash-metric-card total">
+            <div class="dash-metric-icon"><i class="fa-solid fa-users"></i></div>
+            <div class="dash-metric-info">
+              <strong id="dash-total-emp">0 คน</strong>
+              <span>พนักงานทั้งหมดในระบบ</span>
+            </div>
           </div>
-          <div class="admin-metrics-grid">
-            <div class="metric-card total">
-              <div class="metric-icon"><i class="fa-solid fa-users"></i></div>
-              <div class="metric-content">
-                <strong id="adm-total-takers">0 คน</strong>
-                <span>ผู้เข้าสอบในกลุ่มนี้</span>
-              </div>
-            </div>
 
-            <div class="metric-card pass">
-              <div class="metric-icon"><i class="fa-solid fa-circle-check"></i></div>
-              <div class="metric-content">
-                <strong id="adm-pass-count">0 คน (0%)</strong>
-                <span>สอบผ่านเกณฑ์</span>
-              </div>
+          <div class="dash-metric-card pass">
+            <div class="dash-metric-icon"><i class="fa-solid fa-circle-check"></i></div>
+            <div class="dash-metric-info">
+              <strong id="dash-pass-count">0 คน (0%)</strong>
+              <span>สอบผ่านเกณฑ์ (≥ 80%)</span>
             </div>
+          </div>
 
-            <div class="metric-card fail">
-              <div class="metric-icon"><i class="fa-solid fa-circle-xmark"></i></div>
-              <div class="metric-content">
-                <strong id="adm-fail-count">0 คน (0%)</strong>
-                <span>สอบไม่ผ่านเกณฑ์</span>
-              </div>
+          <div class="dash-metric-card fail">
+            <div class="dash-metric-icon"><i class="fa-solid fa-circle-xmark"></i></div>
+            <div class="dash-metric-info">
+              <strong id="dash-fail-count">0 คน (0%)</strong>
+              <span>ยังไม่ผ่าน (< 80% / ต้องทำใหม่)</span>
             </div>
+          </div>
 
-            <div class="metric-card avg">
-              <div class="metric-icon"><i class="fa-solid fa-star"></i></div>
-              <div class="metric-content">
-                <strong id="adm-avg-score">0 / 20</strong>
-                <span>คะแนนเฉลี่ย</span>
-              </div>
+          <div class="dash-metric-card pending">
+            <div class="dash-metric-icon"><i class="fa-solid fa-clock"></i></div>
+            <div class="dash-metric-info">
+              <strong id="dash-pending-count">0 คน (0%)</strong>
+              <span>ยังไม่เสร็จ / ยังไม่ได้สอบ</span>
             </div>
           </div>
         </div>
 
-        <!-- Admin Toolbar (Search & Filter) -->
-        <div class="admin-toolbar" style="margin-top: 1.5rem;">
-          <div class="admin-search-box">
-            <input type="text" id="adm-search-input" placeholder="🔍 ค้นหารหัสพนักงาน, ชื่อ หรือ แผนก...">
+        <!-- Dashboard Toolbar (Search & Filter) -->
+        <div class="dashboard-toolbar">
+          <div class="dash-search-box">
+            <input type="text" id="dash-search-input" placeholder="🔍 ค้นหารหัสพนักงาน, ชื่อ หรือ แผนก...">
           </div>
-          <div class="admin-filters">
-            <select id="adm-filter-type">
-              <option value="ALL">ประเภททั้งหมด (Pre & Post)</option>
-              <option value="Pre-test">เฉพาะ Pre-test</option>
-              <option value="Post-test">เฉพาะ Post-test</option>
-              <option value="PENDING_POST">⚠️ ค้างทำ Post-test (ทำ Pre แล้ว)</option>
+          <div class="dash-filters-group">
+            <select id="dash-filter-status">
+              <option value="ALL">สถานะทั้งหมด (ผ่าน / ยังไม่ผ่าน / ยังไม่เสร็จ)</option>
+              <option value="PASS">🟢 เฉพาะที่สอบผ่าน (PASS)</option>
+              <option value="FAIL">🔴 เฉพาะที่ยังไม่ผ่าน (FAIL)</option>
+              <option value="PENDING">🟡 เฉพาะที่ยังไม่เสร็จ / ยังไม่ได้ทำ (PENDING)</option>
             </select>
-            <select id="adm-filter-status">
-              <option value="ALL">สถานะทั้งหมด</option>
-              <option value="PASS">เฉพาะ ผ่าน (PASS)</option>
-              <option value="FAIL">เฉพาะ ไม่ผ่าน (FAIL)</option>
-            </select>
-            <button id="btn-admin-export-csv" class="btn btn-outline btn-sm">
+            <button id="btn-export-csv" class="btn btn-outline btn-sm">
               <i class="fa-solid fa-file-csv"></i> ส่งออก CSV
             </button>
           </div>
         </div>
 
-        <!-- Results Table -->
-        <div class="results-table-container">
-          <table class="results-table">
+        <!-- Dashboard Table -->
+        <div class="table-container">
+          <table class="custom-table">
             <thead>
               <tr>
-                <th>วัน-เวลา</th>
+                <th>ลำดับ</th>
                 <th>รหัสพนักงาน</th>
                 <th>ชื่อ - นามสกุล</th>
                 <th>แผนก</th>
-                <th>ประเภท</th>
-                <th>คะแนนที่ได้</th>
+                <th>สถานะผลสอบ</th>
+                <th>คะแนนล่าสุด</th>
                 <th>คิดเป็น %</th>
                 <th>รอบที่ทำสอบ</th>
-                <th>ผลการสอบ</th>
+                <th>วัน-เวลาที่ส่งล่าสุด</th>
               </tr>
             </thead>
-            <tbody id="adm-table-body">
+            <tbody id="dash-table-body">
               <!-- Dynamically populated rows -->
             </tbody>
           </table>
@@ -440,60 +385,111 @@
 
     </main>
 
-    <!-- Modal 1: Google Sheet Config (Strictly Hidden by Default) -->
-    <div id="modal-gs-config" class="modal-overlay hidden">
+    <!-- Modal 1: Admin Authentication & Tools -->
+    <div id="modal-admin-auth" class="modal-overlay hidden">
       <div class="modal-card">
         <div class="modal-header">
-          <h3><i class="fa-solid fa-link"></i> ตั้งค่าการเชื่อมต่อ Google Sheets API</h3>
-          <button class="modal-close" id="btn-close-gs-modal">&times;</button>
+          <h3><i class="fa-solid fa-lock"></i> เข้าสู่โหมดผู้ดูแลระบบ (Admin)</h3>
+          <button class="modal-close" id="btn-close-admin-auth">&times;</button>
         </div>
         <div class="modal-body">
-          <p>นำ Web App URL ที่ได้จากการ Deploy Google Apps Script ใน Google Sheet ของคุณมาวางที่นี่:</p>
-          <div class="form-group">
-            <label for="input-gs-url">Google Apps Script Web App URL:</label>
-            <input type="url" id="input-gs-url" class="form-control" placeholder="https://script.google.com/macros/s/AKfycb.../exec">
-            <small class="help-text">ลิงก์ Google Sheet ปัจจุบันของคุณ: <a href="https://docs.google.com/spreadsheets/d/1tmgXgn_inkEabJ5LzRLMa-zDLOf7hTW3CxGWKPPdu9I/edit" target="_blank" class="text-link">ดูชีทที่นี่ <i class="fa-solid fa-arrow-up-right-from-square"></i></a></small>
-          </div>
-          <div class="alert alert-info">
-            <i class="fa-solid fa-lightbulb"></i> คัดลอกโค้ดจากไฟล์ <code>Code.gs</code> ไปใส่ในเมนู <strong>ส่วนขยาย (Extensions) -> Apps Script</strong> ใน Google Sheet ของคุณ
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button id="btn-test-gs" class="btn btn-outline">ทดสอบการเชื่อมต่อ</button>
-          <button id="btn-save-gs" class="btn btn-primary">บันทึกการตั้งค่า</button>
+          <form id="form-admin-auth">
+            <div class="form-group">
+              <label for="input-admin-pass">รหัสผ่านผู้ดูแลระบบ (Admin Password) <span class="required">*</span></label>
+              <div class="input-with-icon">
+                <i class="fa-solid fa-key input-icon"></i>
+                <input type="password" id="input-admin-pass" placeholder="กรอกรหัสผ่านแอดมิน" required>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">ยืนยันรหัสผ่าน</button>
+          </form>
         </div>
       </div>
     </div>
 
-    <!-- Modal 2: Admin Question Editor (Strictly Hidden by Default) -->
-    <div id="modal-admin-editor" class="modal-overlay hidden">
+    <!-- Modal 2: Admin Settings & Question Editor -->
+    <div id="modal-admin-panel" class="modal-overlay hidden">
       <div class="modal-card modal-lg">
         <div class="modal-header">
-          <h3><i class="fa-solid fa-pen-to-square"></i> แก้ไขชุดคำถาม & เฉลย (Question Editor)</h3>
-          <button class="modal-close" id="btn-close-admin-modal">&times;</button>
+          <h3><i class="fa-solid fa-sliders"></i> แผงควบคุมผู้ดูแลระบบ (Admin Settings)</h3>
+          <button class="modal-close" id="btn-close-admin-panel">&times;</button>
         </div>
         <div class="modal-body">
-          <p>คุณสามารถแก้ไขคำถาม เปลี่ยนคำตอบ (ถูก/ผิด) และคำอธิบายเฉลยได้ที่นี่ ข้อมูลจะบันทึกอัตโนมัติในเบราว์เซอร์:</p>
+          <!-- Google Sheet Web App URL setting -->
+          <div class="form-group">
+            <label for="input-gs-url">Google Apps Script Web App URL:</label>
+            <input type="url" id="input-gs-url" class="form-control" style="width:100%; padding:0.6rem; background:rgba(0,0,0,0.3); border:1px solid var(--border-color); color:white; border-radius:var(--radius-sm);" placeholder="https://script.google.com/macros/s/.../exec">
+            <small class="help-text">URL ที่ใช้เชื่อมต่อ Google Sheet เพื่อบันทึกผลสอบและดึงข้อมูลพนักงาน</small>
+            <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem;">
+              <button type="button" id="btn-test-gs-url" class="btn btn-outline btn-sm"><i class="fa-solid fa-plug"></i> ทดสอบการเชื่อมต่อ</button>
+              <button type="button" id="btn-save-gs-url" class="btn btn-primary btn-sm"><i class="fa-solid fa-floppy-disk"></i> บันทึก URL</button>
+            </div>
+          </div>
+
+          <hr style="border: none; border-top: 1px solid var(--border-color); margin: 1.5rem 0;">
+
+          <!-- Question Editor -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h4><i class="fa-solid fa-pen-to-square"></i> แก้ไขคำถามและเฉลย 25 ข้อ</h4>
+            <div>
+              <button type="button" id="btn-reset-questions" class="btn btn-danger-soft btn-sm"><i class="fa-solid fa-rotate-left"></i> คืนค่า 25 ข้อเดิม</button>
+              <button type="button" id="btn-export-json" class="btn btn-outline btn-sm"><i class="fa-solid fa-download"></i> ดาวน์โหลด JSON</button>
+            </div>
+          </div>
+          
           <div id="admin-questions-list" class="admin-questions-editor-list">
-            <!-- Render list of 20 questions with edit inputs -->
+            <!-- Dynamically populated question editor list -->
           </div>
         </div>
         <div class="modal-footer">
-          <button id="btn-reset-questions" class="btn btn-danger-soft"><i class="fa-solid fa-rotate-left"></i> คืนค่าเริ่มต้น (20 ข้อเดิม)</button>
-          <button id="btn-export-json" class="btn btn-outline"><i class="fa-solid fa-download"></i> ส่งออก JSON</button>
-          <button id="btn-save-questions" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> บันทึกคำถาม</button>
+          <button type="button" id="btn-save-questions" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> บันทึกการแก้ไขคำถาม</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal 3: Alert Incomplete Submission (Cannot submit if questions are skipped) -->
+    <div id="modal-incomplete-alert" class="modal-overlay hidden">
+      <div class="modal-card" style="max-width: 480px;">
+        <div class="modal-header" style="background: rgba(239, 68, 68, 0.15); border-bottom: 1px solid rgba(239, 68, 68, 0.3);">
+          <h3 style="color: #f87171;"><i class="fa-solid fa-triangle-exclamation"></i> ยังตอบคำถามไม่ครบ 25 ข้อ</h3>
+          <button class="modal-close" id="btn-close-incomplete-modal">&times;</button>
+        </div>
+        <div class="modal-body text-center" style="padding: 1.5rem;">
+          <div style="font-size: 3rem; color: #f59e0b; margin-bottom: 0.75rem;">
+            <i class="fa-solid fa-circle-exclamation"></i>
+          </div>
+          <h4 style="color: #ffffff; font-size: 1.2rem; margin-bottom: 0.5rem;">ระบบไม่อนุญาตให้ข้ามส่งข้อสอบค่ะ</h4>
+          <p style="color: #9ca3af; font-size: 0.95rem; margin-bottom: 1.25rem;">
+            พนักงานต้องตอบคำถามให้ครบทั้ง 25 ข้อก่อนส่งข้อสอบ<br>
+            ขณะนี้ตอบไปแล้ว <strong id="modal-inc-answered" style="color:#34d399;">0</strong> / 25 ข้อ 
+            (ยังขาดอีก <strong id="modal-inc-remaining" style="color:#f87171;">25</strong> ข้อ)
+          </p>
+
+          <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.9rem; text-align: left; margin-bottom: 1.25rem;">
+            <strong style="color: #fbbf24; font-size: 0.85rem; display: block; margin-bottom: 0.5rem;">
+              <i class="fa-solid fa-list-check"></i> ข้อที่ข้ามไปและต้องวนกลับมาตอบ (คลิกเพื่อไปข้อนั้นทันที):
+            </strong>
+            <div id="modal-inc-pills" style="display: flex; gap: 0.4rem; flex-wrap: wrap; max-height: 120px; overflow-y: auto;">
+              <!-- Dynamic pills -->
+            </div>
+          </div>
+
+          <button type="button" id="btn-modal-go-answer" class="btn btn-warning btn-block btn-lg" style="color: #000; font-weight: 700;">
+            <i class="fa-solid fa-arrow-rotate-right"></i> วนกลับไปตอบข้อที่ข้ามทันที
+          </button>
         </div>
       </div>
     </div>
 
     <!-- Footer -->
     <footer class="footer text-center">
-      <p>&copy; 2026 Pre-test & Post-test Online Examination System. All rights reserved.</p>
+      <p>&copy; 2026 แบบวัดผลการปฐมนิเทศ พนักงานรายวัน (Orientation Exam System). All rights reserved.</p>
     </footer>
   </div>
 
-  <!-- Scripts with Cache Buster -->
-  <script src="./quiz.js?v=1.4"></script>
-  <script src="./app.js?v=1.4"></script>
+  <!-- Scripts -->
+  <script src="./quiz.js?v=2.0"></script>
+  <script src="./app.js?v=2.0"></script>
 </body>
 </html>
+
