@@ -10,10 +10,15 @@ const DEFAULT_GS_URL = "https://script.google.com/macros/s/AKfycbwvYgRcvzKO7pdGh
 const ADMIN_PASSWORD = "089151";
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Navigation Tabs & Screens
-  const navBtnExam = document.getElementById('nav-btn-exam');
-  const navBtnDashboard = document.getElementById('nav-btn-dashboard');
-  const navBtnAdmin = document.getElementById('nav-btn-admin');
+  // Navigation & Admin Controls
+  const btnAdminLoginTrigger = document.getElementById('btn-admin-login-trigger');
+  const adminNavGroup = document.getElementById('admin-nav-group');
+  const navBtnAdminDash = document.getElementById('nav-btn-admin-dash');
+  const navBtnAdminExam = document.getElementById('nav-btn-admin-exam');
+  const navBtnAdminSettings = document.getElementById('nav-btn-admin-settings');
+  const btnAdminLogout = document.getElementById('btn-admin-logout');
+  const btnAdminDashSettings = document.getElementById('btn-admin-dash-settings');
+  const btnAdminDashLogout = document.getElementById('btn-admin-dash-logout');
 
   const screenLogin = document.getElementById('screen-login');
   const screenQuiz = document.getElementById('screen-quiz');
@@ -83,7 +88,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const btnRetestExam = document.getElementById('btn-retest-exam');
   const retestButtonLabel = document.getElementById('retest-button-label');
-  const btnViewDashboard = document.getElementById('btn-view-dashboard');
   const btnBackHome = document.getElementById('btn-back-home');
 
   // Dashboard Elements
@@ -113,7 +117,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnExportJson = document.getElementById('btn-export-json');
   const btnSaveQuestions = document.getElementById('btn-save-questions');
 
-  // App Configuration
+  // App Configuration & State
+  let isAdminLoggedIn = false;
   let googleScriptUrl = localStorage.getItem('orientation_test_gs_url') || DEFAULT_GS_URL;
 
   // Initialize System
@@ -126,22 +131,50 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function bindEvents() {
-    // Nav Tabs
-    navBtnExam.addEventListener('click', () => {
-      setNavActive(navBtnExam);
-      switchScreen(screenLogin);
-    });
+    // Admin Login Trigger (Top-Right Navbar Button)
+    if (btnAdminLoginTrigger) {
+      btnAdminLoginTrigger.addEventListener('click', () => {
+        inputAdminPass.value = '';
+        modalAdminAuth.classList.remove('hidden');
+        inputAdminPass.focus();
+      });
+    }
 
-    navBtnDashboard.addEventListener('click', () => {
-      setNavActive(navBtnDashboard);
-      switchScreen(screenDashboard);
-      renderDashboard();
-    });
+    // Admin Navigation Bar Tabs
+    if (navBtnAdminDash) {
+      navBtnAdminDash.addEventListener('click', () => {
+        setAdminNavActive(navBtnAdminDash);
+        switchScreen(screenDashboard);
+        renderDashboard();
+      });
+    }
 
-    navBtnAdmin.addEventListener('click', () => {
-      inputAdminPass.value = '';
-      modalAdminAuth.classList.remove('hidden');
-    });
+    if (navBtnAdminExam) {
+      navBtnAdminExam.addEventListener('click', () => {
+        setAdminNavActive(navBtnAdminExam);
+        switchScreen(screenLogin);
+      });
+    }
+
+    if (navBtnAdminSettings) {
+      navBtnAdminSettings.addEventListener('click', () => {
+        openAdminPanel();
+      });
+    }
+
+    if (btnAdminLogout) {
+      btnAdminLogout.addEventListener('click', handleAdminLogout);
+    }
+
+    if (btnAdminDashSettings) {
+      btnAdminDashSettings.addEventListener('click', () => {
+        openAdminPanel();
+      });
+    }
+
+    if (btnAdminDashLogout) {
+      btnAdminDashLogout.addEventListener('click', handleAdminLogout);
+    }
 
     // Employee ID Lookup
     let lookupTimer;
@@ -208,16 +241,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Result Actions
-    btnViewDashboard.addEventListener('click', () => {
-      setNavActive(navBtnDashboard);
-      switchScreen(screenDashboard);
-      renderDashboard();
-    });
-
-    btnBackHome.addEventListener('click', () => {
-      setNavActive(navBtnExam);
-      switchScreen(screenLogin);
-    });
+    if (btnBackHome) {
+      btnBackHome.addEventListener('click', () => {
+        switchScreen(screenLogin);
+      });
+    }
 
     // Dashboard Controls
     btnRefreshDashboard.addEventListener('click', async () => {
@@ -238,13 +266,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     formAdminAuth.addEventListener('submit', (e) => {
       e.preventDefault();
-      if (inputAdminPass.value === ADMIN_PASSWORD) {
+      if (inputAdminPass.value.trim() === ADMIN_PASSWORD) {
+        isAdminLoggedIn = true;
         modalAdminAuth.classList.add('hidden');
-        openAdminPanel();
+        if (adminNavGroup) adminNavGroup.classList.remove('hidden');
+        if (btnAdminLoginTrigger) btnAdminLoginTrigger.classList.add('hidden');
+        setAdminNavActive(navBtnAdminDash);
+        switchScreen(screenDashboard);
+        renderDashboard();
       } else {
         alert("รหัสผ่านผู้ดูแลระบบไม่ถูกต้อง");
+        inputAdminPass.value = '';
+        inputAdminPass.focus();
       }
     });
+
+    function handleAdminLogout() {
+      isAdminLoggedIn = false;
+      if (adminNavGroup) adminNavGroup.classList.add('hidden');
+      if (btnAdminLoginTrigger) btnAdminLoginTrigger.classList.remove('hidden');
+      switchScreen(screenLogin);
+    }
 
     // Admin Panel Modal
     btnCloseAdminPanel.addEventListener('click', () => {
@@ -302,14 +344,27 @@ document.addEventListener('DOMContentLoaded', () => {
     btnSaveQuestions.addEventListener('click', saveAdminQuestions);
   }
 
-  function setNavActive(btn) {
-    [navBtnExam, navBtnDashboard, navBtnAdmin].forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+  function setAdminNavActive(btn) {
+    [navBtnAdminDash, navBtnAdminExam, navBtnAdminSettings].forEach(b => {
+      if (b) b.classList.remove('active');
+    });
+    if (btn) btn.classList.add('active');
   }
 
   function switchScreen(screen) {
-    [screenLogin, screenQuiz, screenResult, screenDashboard].forEach(s => s.classList.add('hidden'));
-    screen.classList.remove('hidden');
+    // Security check: Only authenticated admin can view dashboard
+    if (screen === screenDashboard && !isAdminLoggedIn) {
+      alert("แดชบอร์ดนี้สำหรับผู้ดูแลระบบ (Admin) เท่านั้น กรุณาเข้าสู่ระบบ");
+      modalAdminAuth.classList.remove('hidden');
+      inputAdminPass.value = '';
+      inputAdminPass.focus();
+      return;
+    }
+
+    [screenLogin, screenQuiz, screenResult, screenDashboard].forEach(s => {
+      if (s) s.classList.add('hidden');
+    });
+    if (screen) screen.classList.remove('hidden');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
