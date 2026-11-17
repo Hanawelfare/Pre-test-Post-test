@@ -45,17 +45,28 @@
         </div>
       </div>
 
-      <!-- Navigation Tabs (Accessible to both Employees & Admins) -->
-      <div class="nav-tabs-group">
-        <button id="nav-btn-exam" class="nav-tab-btn active">
-          <i class="fa-solid fa-pen-to-square"></i> เข้าทำข้อสอบ
+      <!-- Header Actions: Public vs Admin Controls -->
+      <div class="header-actions">
+        <!-- Button visible to enter Admin Mode -->
+        <button id="btn-admin-login-trigger" class="btn btn-outline btn-sm" title="เข้าสู่ระบบผู้ดูแลระบบเพื่อดูแดชบอร์ด">
+          <i class="fa-solid fa-lock"></i> เข้าสู่ระบบแอดมิน (Admin Portal)
         </button>
-        <button id="nav-btn-dashboard" class="nav-tab-btn">
-          <i class="fa-solid fa-chart-pie"></i> แดชบอร์ดติดตามผลสอบ
-        </button>
-        <button id="nav-btn-admin" class="nav-tab-btn">
-          <i class="fa-solid fa-gear"></i> ผู้ดูแลระบบ
-        </button>
+
+        <!-- Admin Navigation Group (Visible ONLY after Admin logs in) -->
+        <div id="admin-nav-group" class="nav-tabs-group hidden">
+          <button id="nav-btn-admin-dash" class="nav-tab-btn active">
+            <i class="fa-solid fa-chart-pie"></i> แดชบอร์ดผลสอบ
+          </button>
+          <button id="nav-btn-admin-exam" class="nav-tab-btn">
+            <i class="fa-solid fa-pen-to-square"></i> หน้าทำข้อสอบ
+          </button>
+          <button id="nav-btn-admin-settings" class="nav-tab-btn">
+            <i class="fa-solid fa-gear"></i> จัดการข้อสอบ & ชีต
+          </button>
+          <button id="btn-admin-logout" class="nav-tab-btn" style="color: #f87171;">
+            <i class="fa-solid fa-right-from-bracket"></i> ออกจากระบบ
+          </button>
+        </div>
       </div>
     </header>
 
@@ -280,11 +291,6 @@
               <i class="fa-solid fa-rotate-right"></i> <span id="retest-button-label">ทำข้อสอบใหม่ (ครั้งที่ 2)</span>
             </button>
 
-            <!-- Dashboard Button -->
-            <button id="btn-view-dashboard" class="btn btn-outline btn-lg">
-              <i class="fa-solid fa-chart-pie"></i> ดูแดชบอร์ดติดตามผลสอบ
-            </button>
-
             <!-- Back Home Button -->
             <button id="btn-back-home" class="btn btn-outline btn-lg">
               <i class="fa-solid fa-house"></i> กลับหน้าหลัก
@@ -293,16 +299,25 @@
         </div>
       </section>
 
-      <!-- SCREEN 4: LIVE DASHBOARD (Accessible to both Employees & Admins) -->
+      <!-- SCREEN 4: ADMIN DASHBOARD (Accessible ONLY to Admin) -->
       <section id="screen-dashboard" class="screen-card hidden">
         <div class="dashboard-top-bar">
           <div>
+            <div class="badge-pill bg-primary-soft text-primary" style="margin-bottom:0.4rem;">
+              <i class="fa-solid fa-shield-halved"></i> สำหรับผู้ดูแลระบบเท่านั้น (Admin Portal)
+            </div>
             <h2><i class="fa-solid fa-chart-line text-primary"></i> แดชบอร์ดติดตามผลสอบปฐมนิเทศ</h2>
-            <p class="subtitle">ติดตามสถานะแบบเรียลไทม์: ใครสอบผ่าน ใครยังไม่ผ่าน และใครยังไม่เสร็จ</p>
+            <p class="subtitle">รายงานสถานะแบบเรียลไทม์: ใครสอบผ่าน ใครยังไม่ผ่าน และใครยังไม่เสร็จ</p>
           </div>
-          <div>
-            <button id="btn-refresh-dashboard" class="btn btn-outline btn-sm">
+          <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+            <button id="btn-admin-dash-settings" class="btn btn-outline btn-sm">
+              <i class="fa-solid fa-pen-to-square"></i> แก้ไขคำถาม & ชีต
+            </button>
+            <button id="btn-refresh-dashboard" class="btn btn-primary btn-sm">
               <i class="fa-solid fa-arrows-rotate"></i> รีเฟรชข้อมูล
+            </button>
+            <button id="btn-admin-dash-logout" class="btn btn-danger-soft btn-sm">
+              <i class="fa-solid fa-right-from-bracket"></i> ออกจากระบบ
             </button>
           </div>
         </div>
