@@ -430,7 +430,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const latest = subs[0];
         const isPassed = latest.score >= 20;
         pastAttemptBanner.classList.remove('hidden');
-        pastAttemptText.innerHTML = `คุณเคยทำข้อสอบนี้มาแล้ว <strong>${subs.length} ครั้ง</strong> (คะแนนล่าสุด: <strong>${latest.score}/25 - ${isPassed ? '<span style="color:#34d399">ผ่าน</span>' : '<span style="color:#f87171">ยังไม่ผ่าน</span>'}</strong>) หากทำครั้งนี้จะเป็น<strong>รอบที่ ${subs.length + 1}</strong>`;
+        pastAttemptText.innerHTML = `คุณเคยทำข้อสอบนี้มาแล้ว <strong>${subs.length} ครั้ง</strong> (คะแนนล่าสุด: <strong>${latest.score}/25 - ${isPassed ? '<span style="color:#059669; font-weight:700;">ผ่าน</span>' : '<span style="color:#dc2626; font-weight:700;">ยังไม่ผ่าน</span>'}</strong>) หากทำครั้งนี้จะเป็น<strong>รอบที่ ${subs.length + 1}</strong>`;
       } else {
         pastAttemptBanner.classList.add('hidden');
       }
@@ -625,7 +625,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (skippedCount === 0) {
         skippedPillsBar.classList.add('all-done');
         if (skippedPillsLabel) {
-          skippedPillsLabel.innerHTML = `<span style="color:#34d399;"><i class="fa-solid fa-circle-check"></i> ยอดเยี่ยม! ตอบครบทั้ง 25 ข้อแล้ว สามารถกดส่งข้อสอบได้เลยค่ะ</span>`;
+          skippedPillsLabel.innerHTML = `<span style="color:#059669; font-weight:700;"><i class="fa-solid fa-circle-check"></i> ยอดเยี่ยม! ตอบครบทั้ง 25 ข้อแล้ว สามารถกดส่งข้อสอบได้เลยค่ะ</span>`;
         }
         if (btnJumpNextSkipped) btnJumpNextSkipped.classList.add('hidden');
         if (btnFooterNextSkipped) btnFooterNextSkipped.classList.add('hidden');
@@ -921,8 +921,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (filteredList.length === 0) {
       dashTableBody.innerHTML = `
         <tr>
-          <td colspan="9" class="text-center" style="padding: 2rem; color: #9ca3af;">
-            <i class="fa-solid fa-inbox" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+          <td colspan="9" class="text-center" style="padding: 2.5rem; color: #64748b;">
+            <i class="fa-solid fa-inbox" style="font-size: 2.2rem; display: block; margin-bottom: 0.6rem; color: #94a3b8;"></i>
             ไม่พบข้อมูลตามเงื่อนไขที่เลือก
           </td>
         </tr>
@@ -940,13 +940,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (row.status === 'PASS') {
         statusBadge = `<span class="badge-status-pass"><i class="fa-solid fa-circle-check"></i> ผ่าน (PASS)</span>`;
-        scoreText = `<strong>${row.score}</strong> / ${row.maxScore}`;
-        percentText = `<strong style="color:#34d399;">${row.percentage}%</strong>`;
+        scoreText = `<strong style="color:#0369a1;">${row.score}</strong> / ${row.maxScore}`;
+        percentText = `<strong style="color:#059669;">${row.percentage}%</strong>`;
         attemptText = `<span class="badge-pill bg-success">รอบที่ ${row.attemptCount} (ผ่าน 🎉)</span>`;
       } else if (row.status === 'FAIL') {
         statusBadge = `<span class="badge-status-fail"><i class="fa-solid fa-circle-xmark"></i> ยังไม่ผ่าน (FAIL)</span>`;
-        scoreText = `<strong>${row.score}</strong> / ${row.maxScore}`;
-        percentText = `<strong style="color:#f87171;">${row.percentage}%</strong>`;
+        scoreText = `<strong style="color:#0369a1;">${row.score}</strong> / ${row.maxScore}`;
+        percentText = `<strong style="color:#dc2626;">${row.percentage}%</strong>`;
         attemptText = `<span class="badge-pill bg-warning text-dark">รอบที่ ${row.attemptCount} (ต้องทำใหม่)</span>`;
       } else {
         statusBadge = `<span class="badge-status-pending"><i class="fa-solid fa-clock"></i> ยังไม่เสร็จ / ยังไม่สอบ</span>`;
@@ -1031,20 +1031,20 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="admin-q-item-header">
           <span>ข้อที่ ${idx + 1} (ID: ${q.id})</span>
           <div>
-            <label style="font-size: 0.85rem; cursor: pointer; color: white;">
+            <label style="font-size: 0.88rem; cursor: pointer; color: #0369a1; font-weight: 600;">
               เฉลย: 
-              <select class="admin-ans-select" data-id="${q.id}" style="padding: 0.2rem 0.5rem; background:#1e293b; color:white; border:1px solid #475569; border-radius:4px;">
+              <select class="admin-ans-select" data-id="${q.id}" style="padding: 0.3rem 0.6rem; background:#ffffff; color:#0f172a; border:1.5px solid #cbd5e1; border-radius:6px; font-weight: 600;">
                 <option value="true" ${q.answer === true ? 'selected' : ''}>ถูก (True)</option>
                 <option value="false" ${q.answer === false ? 'selected' : ''}>ผิด (False)</option>
               </select>
             </label>
           </div>
         </div>
-        <div style="margin-bottom: 0.5rem;">
-          <input type="text" class="admin-q-text" data-id="${q.id}" value="${escapeHtml(q.question)}" style="width:100%; padding: 0.5rem; background:#0f172a; color:white; border:1px solid #334155; border-radius:4px; font-size: 0.9rem;">
+        <div style="margin-bottom: 0.6rem;">
+          <input type="text" class="admin-q-text" data-id="${q.id}" value="${escapeHtml(q.question)}" style="width:100%; padding: 0.6rem 0.8rem; background:#ffffff; color:#0f172a; border:1.5px solid #cbd5e1; border-radius:6px; font-size: 0.95rem;">
         </div>
         <div>
-          <input type="text" class="admin-q-exp" data-id="${q.id}" value="${escapeHtml(q.explanation || '')}" placeholder="คำอธิบายเฉลย" style="width:100%; padding: 0.4rem; background:#0f172a; color:#94a3b8; border:1px solid #334155; border-radius:4px; font-size: 0.8rem;">
+          <input type="text" class="admin-q-exp" data-id="${q.id}" value="${escapeHtml(q.explanation || '')}" placeholder="คำอธิบายเฉลย" style="width:100%; padding: 0.45rem 0.8rem; background:#ffffff; color:#475569; border:1px solid #e2e8f0; border-radius:6px; font-size: 0.85rem;">
         </div>
       `;
       adminQuestionsList.appendChild(item);
