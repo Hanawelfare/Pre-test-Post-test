@@ -118,7 +118,7 @@
           </div>
 
           <!-- Existing Attempt Notice (if already took the test before) -->
-          <div id="past-attempt-banner" class="alert hidden" style="background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.5rem; color: #c7d2fe;">
+          <div id="past-attempt-banner" class="alert hidden" style="background: #eef2ff; border: 1.5px solid #c7d2fe; border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.5rem; color: #3730a3;">
             <i class="fa-solid fa-clock-rotate-left"></i> <span id="past-attempt-text">คุณเคยทำข้อสอบนี้มาแล้ว</span>
           </div>
 
@@ -127,10 +127,10 @@
             <h4><i class="fa-solid fa-circle-info text-primary"></i> กติกาและเกณฑ์การสอบ (สำคัญ)</h4>
             <ul class="rules-list">
               <li><span class="badge-rule bg-danger" style="background:#ef4444; color:white;">* ต้องตอบครบ 25 ข้อ</span> ห้ามข้ามส่ง (ต้องตอบคำถามให้ครบทุกข้อ)</li>
-              <li><span class="badge-rule bg-warning" style="color:#000;">ข้ามข้อชั่วคราวได้</span> ข้ามไปตอบข้ออื่นได้ แต่ต้องวนกลับมาตอบให้ครบก่อนส่ง</li>
-              <li><span class="badge-rule bg-accent-soft" style="color:#a5b4fc;"><i class="fa-solid fa-shuffle"></i> สลับโจทย์เฉพาะบุคคล</span> ข้อสอบสลับข้ออัตโนมัติ ป้องกันการลอกกัน</li>
+              <li><span class="badge-rule bg-warning" style="color:#ffffff;">ข้ามข้อชั่วคราวได้</span> ข้ามไปตอบข้ออื่นได้ แต่ต้องวนกลับมาตอบให้ครบก่อนส่ง</li>
+              <li><span class="badge-rule bg-accent-soft" style="color:#1d4ed8;"><i class="fa-solid fa-shuffle"></i> สลับโจทย์เฉพาะบุคคล</span> ข้อสอบสลับข้ออัตโนมัติ ป้องกันการลอกกัน</li>
               <li><span class="badge-rule bg-success">+1 คะแนน / ข้อ</span> ตอบถูกได้ 1 คะแนน (ตอบผิดได้ 0 คะแนน)</li>
-              <li><span class="badge-rule bg-warning" style="color:#000;">เกณฑ์ผ่าน 80%</span> ต้องได้ 20 คะแนนขึ้นไป (เต็ม 25 คะแนน)</li>
+              <li><span class="badge-rule bg-warning" style="color:#ffffff;">เกณฑ์ผ่าน 80%</span> ต้องได้ 20 คะแนนขึ้นไป (เต็ม 25 คะแนน)</li>
               <li><span class="badge-rule bg-neutral"><i class="fa-solid fa-rotate-right"></i> สอบซ้ำได้</span> หากไม่ผ่าน 80% มีปุ่มให้ทำใหม่</li>
             </ul>
           </div>
@@ -433,15 +433,15 @@
           <!-- Google Sheet Web App URL setting -->
           <div class="form-group">
             <label for="input-gs-url">Google Apps Script Web App URL:</label>
-            <input type="url" id="input-gs-url" class="form-control" style="width:100%; padding:0.6rem; background:rgba(0,0,0,0.3); border:1px solid var(--border-color); color:white; border-radius:var(--radius-sm);" placeholder="https://script.google.com/macros/s/.../exec">
+            <input type="url" id="input-gs-url" class="form-control" style="width:100%; padding:0.75rem 1rem; background:#ffffff; border:1.5px solid #cbd5e1; color:#0f172a; border-radius:var(--radius-sm); font-size: 0.95rem;" placeholder="https://script.google.com/macros/s/.../exec">
             <small class="help-text">URL ที่ใช้เชื่อมต่อ Google Sheet เพื่อบันทึกผลสอบและดึงข้อมูลพนักงาน</small>
-            <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem;">
+            <div style="margin-top: 0.75rem; display: flex; gap: 0.6rem;">
               <button type="button" id="btn-test-gs-url" class="btn btn-outline btn-sm"><i class="fa-solid fa-plug"></i> ทดสอบการเชื่อมต่อ</button>
               <button type="button" id="btn-save-gs-url" class="btn btn-primary btn-sm"><i class="fa-solid fa-floppy-disk"></i> บันทึก URL</button>
             </div>
           </div>
 
-          <hr style="border: none; border-top: 1px solid var(--border-color); margin: 1.5rem 0;">
+          <hr style="border: none; border-top: 1.5px solid var(--border-color); margin: 1.5rem 0;">
 
           <!-- Question Editor -->
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
@@ -464,32 +464,32 @@
 
     <!-- Modal 3: Alert Incomplete Submission (Cannot submit if questions are skipped) -->
     <div id="modal-incomplete-alert" class="modal-overlay hidden">
-      <div class="modal-card" style="max-width: 480px;">
-        <div class="modal-header" style="background: rgba(239, 68, 68, 0.15); border-bottom: 1px solid rgba(239, 68, 68, 0.3);">
-          <h3 style="color: #f87171;"><i class="fa-solid fa-triangle-exclamation"></i> ยังตอบคำถามไม่ครบ 25 ข้อ</h3>
+      <div class="modal-card" style="max-width: 490px;">
+        <div class="modal-header" style="background: #fef2f2; border-bottom: 1.5px solid #fecaca;">
+          <h3 style="color: #dc2626;"><i class="fa-solid fa-triangle-exclamation"></i> ยังตอบคำถามไม่ครบ 25 ข้อ</h3>
           <button class="modal-close" id="btn-close-incomplete-modal">&times;</button>
         </div>
-        <div class="modal-body text-center" style="padding: 1.5rem;">
-          <div style="font-size: 3rem; color: #f59e0b; margin-bottom: 0.75rem;">
+        <div class="modal-body text-center" style="padding: 1.75rem;">
+          <div style="font-size: 3.2rem; color: #f59e0b; margin-bottom: 0.85rem;">
             <i class="fa-solid fa-circle-exclamation"></i>
           </div>
-          <h4 style="color: #ffffff; font-size: 1.2rem; margin-bottom: 0.5rem;">ระบบไม่อนุญาตให้ข้ามส่งข้อสอบค่ะ</h4>
-          <p style="color: #9ca3af; font-size: 0.95rem; margin-bottom: 1.25rem;">
+          <h4 style="color: #0f172a; font-size: 1.3rem; margin-bottom: 0.5rem; font-weight: 700;">ระบบไม่อนุญาตให้ข้ามส่งข้อสอบค่ะ</h4>
+          <p style="color: #64748b; font-size: 0.98rem; margin-bottom: 1.35rem;">
             พนักงานต้องตอบคำถามให้ครบทั้ง 25 ข้อก่อนส่งข้อสอบ<br>
-            ขณะนี้ตอบไปแล้ว <strong id="modal-inc-answered" style="color:#34d399;">0</strong> / 25 ข้อ 
-            (ยังขาดอีก <strong id="modal-inc-remaining" style="color:#f87171;">25</strong> ข้อ)
+            ขณะนี้ตอบไปแล้ว <strong id="modal-inc-answered" style="color:#059669;">0</strong> / 25 ข้อ 
+            (ยังขาดอีก <strong id="modal-inc-remaining" style="color:#dc2626;">25</strong> ข้อ)
           </p>
 
-          <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.9rem; text-align: left; margin-bottom: 1.25rem;">
-            <strong style="color: #fbbf24; font-size: 0.85rem; display: block; margin-bottom: 0.5rem;">
+          <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: var(--radius-md); padding: 1rem; text-align: left; margin-bottom: 1.35rem;">
+            <strong style="color: #b45309; font-size: 0.88rem; display: block; margin-bottom: 0.6rem;">
               <i class="fa-solid fa-list-check"></i> ข้อที่ข้ามไปและต้องวนกลับมาตอบ (คลิกเพื่อไปข้อนั้นทันที):
             </strong>
-            <div id="modal-inc-pills" style="display: flex; gap: 0.4rem; flex-wrap: wrap; max-height: 120px; overflow-y: auto;">
+            <div id="modal-inc-pills" style="display: flex; gap: 0.45rem; flex-wrap: wrap; max-height: 120px; overflow-y: auto;">
               <!-- Dynamic pills -->
             </div>
           </div>
 
-          <button type="button" id="btn-modal-go-answer" class="btn btn-warning btn-block btn-lg" style="color: #000; font-weight: 700;">
+          <button type="button" id="btn-modal-go-answer" class="btn btn-warning btn-block btn-lg" style="color: #ffffff; font-weight: 700; background: linear-gradient(135deg, #f59e0b, #d97706); box-shadow: 0 4px 14px rgba(245, 158, 11, 0.4);">
             <i class="fa-solid fa-arrow-rotate-right"></i> วนกลับไปตอบข้อที่ข้ามทันที
           </button>
         </div>
