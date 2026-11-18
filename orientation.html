@@ -357,43 +357,56 @@
           </div>
         </div>
 
-        <!-- Dashboard Toolbar (Search & Filter) -->
+        <!-- 📊 Socrative Item Analysis Card: % คนตอบถูกรายข้อ 1 - 25 -->
+        <div id="dash-socrative-item-analysis" class="socrative-item-analysis-card">
+          <div class="analysis-header">
+            <h4><i class="fa-solid fa-chart-column text-primary"></i> ผลการวิเคราะห์รายข้อ 1 - 25 สไตล์ Socrative (% คนตอบถูกรายข้อ)</h4>
+            <span class="text-muted" style="font-size:0.85rem;"><i class="fa-solid fa-circle-info"></i> คลิกที่ข้อเพื่อดูโจทย์และสถิติคนตอบถูก/ผิด</span>
+          </div>
+          <div id="socrative-analysis-grid" class="socrative-analysis-grid">
+            <!-- Dynamic Question Accuracy Chips -->
+          </div>
+        </div>
+
+        <!-- Dashboard Toolbar (Search, Filter, View Toggles & Export) -->
         <div class="dashboard-toolbar">
           <div class="dash-search-box">
             <input type="text" id="dash-search-input" placeholder="🔍 ค้นหารหัสพนักงาน, ชื่อ หรือ แผนก...">
           </div>
           <div class="dash-filters-group">
+            <div class="dash-view-toggle-group">
+              <button type="button" id="btn-view-summary" class="btn btn-sm active" title="ตารางสรุปภาพรวมรายชื่อ">
+                <i class="fa-solid fa-list-check"></i> ภาพรวม
+              </button>
+              <button type="button" id="btn-view-socrative" class="btn btn-sm" title="ตารางตรวจคำตอบข้อ 1-25 สไตล์ Socrative">
+                <i class="fa-solid fa-table-cells"></i> ตาราง 25 ข้อ (Socrative)
+              </button>
+            </div>
+
             <select id="dash-filter-status">
               <option value="ALL">สถานะทั้งหมด (ผ่าน / ยังไม่ผ่าน / ยังไม่เสร็จ)</option>
               <option value="PASS">🟢 เฉพาะที่สอบผ่าน (PASS)</option>
               <option value="FAIL">🔴 เฉพาะที่ยังไม่ผ่าน (FAIL)</option>
               <option value="PENDING">🟡 เฉพาะที่ยังไม่เสร็จ / ยังไม่ได้ทำ (PENDING)</option>
             </select>
-            <button id="btn-export-csv" class="btn btn-outline btn-sm">
-              <i class="fa-solid fa-file-csv"></i> ส่งออก CSV
+            <button id="btn-export-csv" class="btn btn-success btn-sm" title="ดาวน์โหลดผลสอบรายข้อแนว Socrative ออกมาเป็นไฟล์ Excel/CSV">
+              <i class="fa-solid fa-file-excel"></i> ดาวน์โหลดไฟล์ Socrative (.csv)
             </button>
           </div>
         </div>
 
-        <!-- Dashboard Table -->
-        <div class="table-container">
-          <table class="custom-table">
-            <thead>
-              <tr>
-                <th>ลำดับ</th>
-                <th>รหัสพนักงาน</th>
-                <th>ชื่อ - นามสกุล</th>
-                <th>แผนก</th>
-                <th>สถานะผลสอบ</th>
-                <th>คะแนนล่าสุด</th>
-                <th>คิดเป็น %</th>
-                <th>รอบที่ทำสอบ</th>
-                <th>วัน-เวลาที่ส่งล่าสุด</th>
-              </tr>
+        <!-- Dashboard Table Container -->
+        <div class="table-container" id="dash-table-container">
+          <table class="custom-table" id="dash-main-table">
+            <thead id="dash-table-head">
+              <!-- Dynamically populated header (Summary vs Socrative Matrix) -->
             </thead>
             <tbody id="dash-table-body">
               <!-- Dynamically populated rows -->
             </tbody>
+            <tfoot id="dash-table-foot" class="hidden">
+              <!-- Socrative Accuracy Summary Footer -->
+            </tfoot>
           </table>
         </div>
       </section>
@@ -492,6 +505,31 @@
           <button type="button" id="btn-modal-go-answer" class="btn btn-warning btn-block btn-lg" style="color: #ffffff; font-weight: 700; background: linear-gradient(135deg, #f59e0b, #d97706); box-shadow: 0 4px 14px rgba(245, 158, 11, 0.4);">
             <i class="fa-solid fa-arrow-rotate-right"></i> วนกลับไปตอบข้อที่ข้ามทันที
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal 4: Employee Socrative Detail Modal (ตรวจคำตอบ 25 ข้อ รายบุคคล) -->
+    <div id="modal-employee-detail" class="modal-overlay hidden">
+      <div class="modal-card modal-lg">
+        <div class="modal-header">
+          <div>
+            <h3 id="modal-emp-detail-title"><i class="fa-solid fa-file-lines text-primary"></i> ผลการสอบรายบุคคลแนว Socrative (ข้อ 1 - 25)</h3>
+            <p id="modal-emp-detail-subtitle" class="subtitle" style="font-size:0.85rem; margin-top:0.2rem;"></p>
+          </div>
+          <button class="modal-close" id="btn-close-emp-detail">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div id="modal-emp-detail-meta" class="emp-detail-meta-box">
+            <!-- Score, %, Pass/Fail Badge, Attempt info -->
+          </div>
+          <div id="modal-emp-detail-list" class="emp-detail-q-list">
+            <!-- 25 questions with student answer vs correct answer -->
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" id="btn-print-emp-detail"><i class="fa-solid fa-print"></i> พิมพ์ / บันทึก PDF</button>
+          <button type="button" class="btn btn-primary" id="btn-close-emp-detail-footer">ปิดหน้าต่าง</button>
         </div>
       </div>
     </div>
