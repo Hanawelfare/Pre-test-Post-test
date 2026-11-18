@@ -90,16 +90,33 @@ document.addEventListener('DOMContentLoaded', () => {
   const retestButtonLabel = document.getElementById('retest-button-label');
   const btnBackHome = document.getElementById('btn-back-home');
 
-  // Dashboard Elements
+  // Dashboard & Socrative Elements
   const dashTotalEmp = document.getElementById('dash-total-emp');
   const dashPassCount = document.getElementById('dash-pass-count');
   const dashFailCount = document.getElementById('dash-fail-count');
   const dashPendingCount = document.getElementById('dash-pending-count');
   const dashSearchInput = document.getElementById('dash-search-input');
   const dashFilterStatus = document.getElementById('dash-filter-status');
+  const dashTableHead = document.getElementById('dash-table-head');
   const dashTableBody = document.getElementById('dash-table-body');
+  const dashTableFoot = document.getElementById('dash-table-foot');
   const btnRefreshDashboard = document.getElementById('btn-refresh-dashboard');
   const btnExportCsv = document.getElementById('btn-export-csv');
+  const socrativeAnalysisGrid = document.getElementById('socrative-analysis-grid');
+  const btnViewSummary = document.getElementById('btn-view-summary');
+  const btnViewSocrative = document.getElementById('btn-view-socrative');
+
+  // Modal Employee Detail Elements (Socrative Individual View)
+  const modalEmployeeDetail = document.getElementById('modal-employee-detail');
+  const btnCloseEmpDetail = document.getElementById('btn-close-emp-detail');
+  const btnCloseEmpDetailFooter = document.getElementById('btn-close-emp-detail-footer');
+  const btnPrintEmpDetail = document.getElementById('btn-print-emp-detail');
+  const modalEmpDetailTitle = document.getElementById('modal-emp-detail-title');
+  const modalEmpDetailSubtitle = document.getElementById('modal-emp-detail-subtitle');
+  const modalEmpDetailMeta = document.getElementById('modal-emp-detail-meta');
+  const modalEmpDetailList = document.getElementById('modal-emp-detail-list');
+
+  let currentDashboardView = 'overview'; // 'overview' or 'socrative'
 
   // Admin Modals
   const modalAdminAuth = document.getElementById('modal-admin-auth');
@@ -231,6 +248,42 @@ document.addEventListener('DOMContentLoaded', () => {
       btnModalGoAnswer.addEventListener('click', () => {
         modalIncompleteAlert.classList.add('hidden');
         jumpToNextSkippedQuestion();
+      });
+    }
+
+    // Socrative View Switcher Controls
+    if (btnViewSummary) {
+      btnViewSummary.addEventListener('click', () => {
+        currentDashboardView = 'overview';
+        btnViewSummary.classList.add('active');
+        if (btnViewSocrative) btnViewSocrative.classList.remove('active');
+        renderDashboard();
+      });
+    }
+
+    if (btnViewSocrative) {
+      btnViewSocrative.addEventListener('click', () => {
+        currentDashboardView = 'socrative';
+        btnViewSocrative.classList.add('active');
+        if (btnViewSummary) btnViewSummary.classList.remove('active');
+        renderDashboard();
+      });
+    }
+
+    // Modal Employee Detail Controls (Socrative View)
+    if (btnCloseEmpDetail) {
+      btnCloseEmpDetail.addEventListener('click', () => {
+        modalEmployeeDetail.classList.add('hidden');
+      });
+    }
+    if (btnCloseEmpDetailFooter) {
+      btnCloseEmpDetailFooter.addEventListener('click', () => {
+        modalEmployeeDetail.classList.add('hidden');
+      });
+    }
+    if (btnPrintEmpDetail) {
+      btnPrintEmpDetail.addEventListener('click', () => {
+        window.print();
       });
     }
 
@@ -703,6 +756,17 @@ document.addEventListener('DOMContentLoaded', () => {
   async function processExamSubmission() {
     const scoreResult = orientationQuizEngine.calculateScore();
 
+    // จัดเรียงคำตอบข้อ 1 ถึง 25 ตามลำดับ Canonical ID สำหรับส่งออกแนว Socrative
+    const sortedDetails = [...scoreResult.details].sort((a, b) => a.questionId - b.questionId);
+    const answersPayload = sortedDetails.map(d => ({
+      q: d.questionId,
+      ans: d.userAnswer,
+      correct: d.correctAnswer,
+      score: d.itemScore,
+      isCorrect: (d.userAnswer === d.correctAnswer),
+      explanation: d.explanation || ''
+    }));
+
     // Record submission entry in local log
     const submissionRecord = {
       timestamp: new Date().toLocaleString('th-TH'),
@@ -714,7 +778,8 @@ document.addEventListener('DOMContentLoaded', () => {
       maxScore: scoreResult.maxScore,
       percentage: scoreResult.percentage,
       isPassed: scoreResult.isPassed,
-      attemptNumber: scoreResult.attemptNumber
+      attemptNumber: scoreResult.attemptNumber,
+      answers: answersPayload
     };
     orientationQuizEngine.recordSubmission(submissionRecord);
 
@@ -722,7 +787,7 @@ document.addEventListener('DOMContentLoaded', () => {
     switchScreen(screenResult);
 
     // Send payload to Google Sheets
-    await sendResultToGoogleSheets(scoreResult);
+    await sendResultToGoogleSheets(scoreResult, answersPayload);
   }
 
   // Result Screen Renderer (Strict: Employee ONLY sees Total Score and %)
@@ -754,7 +819,7 @@ document.addEventListener('DOMContentLoaded', () => {
     resAttemptInfo.innerHTML = `รอบที่ทำสอบ: <strong>ครั้งที่ ${result.attemptNumber}</strong> | รหัสพนักงาน: <strong>${orientationQuizEngine.currentUser.empId}</strong>`;
   }
 
-  async function sendResultToGoogleSheets(result) {
+  async function sendResultToGoogleSheets(result, answersPayload) {
     if (!googleScriptUrl) {
       syncStatusBox.className = 'sync-status-bar';
       syncIcon.className = 'fa-solid fa-circle-info';
@@ -776,7 +841,7 @@ document.addEventListener('DOMContentLoaded', () => {
       maxScore: result.maxScore,
       isPassed: result.isPassed,
       attemptNumber: result.attemptNumber,
-      answers: result.details.map(d => ({ q: d.questionId, ans: d.userAnswer, score: d.itemScore }))
+      answers: answersPayload || result.details.map(d => ({ q: d.questionId, ans: d.userAnswer, score: d.itemScore, isCorrect: d.userAnswer === d.correctAnswer }))
     };
 
     try {
@@ -802,19 +867,17 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /**
-   * DASHBOARD CONTROLLER & TABLE RENDERER
-   * ตรวจสอบสถานะทั้ง 3 กลุ่ม:
-   * 1. คนไหนทำข้อสอบผ่าน (PASS)
-   * 2. คนไหนยังไม่ผ่าน (FAIL)
-   * 3. คนไหนยังไม่เสร็จ / ยังไม่ได้สอบ (PENDING)
-   * แอดมินและพนักงานสามารถดูได้แบบโปร่งใส
+   * DASHBOARD CONTROLLER & SOCRATIVE TABLE RENDERER
+   * รองรับ 2 โหมด:
+   * 1. ตารางภาพรวม (Overview Mode)
+   * 2. ตารางตรวจคำตอบข้อ 1 - 25 สไตล์ Socrative (Socrative Matrix Mode)
+   * พร้อม Item Analysis % ความถูกต้องรายข้อ 1 - 25
    */
   function renderDashboard() {
     const search = (dashSearchInput.value || '').trim().toLowerCase();
     const filterStatus = dashFilterStatus.value;
 
-    // 1. Compile roster of all employees
-    // Combine employees from sheet "Name" + any who submitted but aren't in Name
+    // 1. รวบรวมรายชื่อพนักงานทั้งหมด
     const rosterMap = new Map();
 
     orientationQuizEngine.employeeDatabase.forEach(emp => {
@@ -829,7 +892,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    // Populate submissions into employee roster
+    // นำประวัติการส่งข้อสอบมาจับคู่กับพนักงาน
     orientationQuizEngine.submissionsLog.forEach(sub => {
       const cleanId = orientationQuizEngine.cleanEmpId(sub.empId);
       if (!cleanId) return;
@@ -846,29 +909,29 @@ document.addEventListener('DOMContentLoaded', () => {
       rosterMap.get(cleanId).submissions.push(sub);
     });
 
-    // 2. Evaluate status for each person
+    // 2. ประเมินผลสถานะและดึงคำตอบล่าสุดของแต่ละคน
     const evaluatedList = [];
     rosterMap.forEach((person) => {
-      const subs = person.submissions; // chronological or reverse chronological
+      const subs = person.submissions;
       const hasTaken = subs.length > 0;
 
-      let status = 'PENDING'; // PENDING, PASS, FAIL
+      let status = 'PENDING';
       let latestScore = null;
       let latestMaxScore = 25;
       let latestPercent = null;
       let latestAttempt = 0;
       let latestTimestamp = '-';
+      let latestAnswers = [];
 
       if (hasTaken) {
-        // Sort newest first by timestamp if needed, or use sub[0]
         const latestSub = subs[0];
         latestScore = latestSub.score;
         latestMaxScore = latestSub.maxScore || 25;
         latestPercent = Math.round((latestScore / latestMaxScore) * 100);
         latestAttempt = subs.length;
         latestTimestamp = latestSub.timestamp || '-';
+        latestAnswers = latestSub.answers || [];
 
-        // Check if latest attempt passed (score >= 20)
         if (latestScore >= 20) {
           status = 'PASS';
         } else {
@@ -885,11 +948,12 @@ document.addEventListener('DOMContentLoaded', () => {
         maxScore: latestMaxScore,
         percentage: latestPercent,
         attemptCount: latestAttempt,
-        latestTimestamp: latestTimestamp
+        latestTimestamp: latestTimestamp,
+        answers: latestAnswers
       });
     });
 
-    // 3. Calculate Overall Metrics
+    // 3. คำนวณภาพรวม 4 เมตริก
     const totalCount = evaluatedList.length;
     const passCount = evaluatedList.filter(e => e.status === 'PASS').length;
     const failCount = evaluatedList.filter(e => e.status === 'FAIL').length;
@@ -904,7 +968,10 @@ document.addEventListener('DOMContentLoaded', () => {
     dashFailCount.textContent = `${failCount} คน (${failPct}%)`;
     dashPendingCount.textContent = `${pendingCount} คน (${pendingPct}%)`;
 
-    // 4. Apply Filters & Search
+    // 4. สรุปความถูกต้องรายข้อแนว Socrative (Item Analysis)
+    renderSocrativeItemAnalysis(evaluatedList);
+
+    // 5. ตัวกรองและการค้นหา
     const filteredList = evaluatedList.filter(item => {
       const matchSearch = !search ||
         (item.empId && item.empId.toLowerCase().includes(search)) ||
@@ -916,102 +983,554 @@ document.addEventListener('DOMContentLoaded', () => {
       return matchSearch && matchFilter;
     });
 
-    // 5. Render Table Rows
-    dashTableBody.innerHTML = '';
-    if (filteredList.length === 0) {
-      dashTableBody.innerHTML = `
-        <tr>
-          <td colspan="9" class="text-center" style="padding: 2.5rem; color: #64748b;">
-            <i class="fa-solid fa-inbox" style="font-size: 2.2rem; display: block; margin-bottom: 0.6rem; color: #94a3b8;"></i>
-            ไม่พบข้อมูลตามเงื่อนไขที่เลือก
-          </td>
-        </tr>
-      `;
-      return;
-    }
-
-    filteredList.forEach((row, idx) => {
-      const tr = document.createElement('tr');
-
-      let statusBadge = '';
-      let scoreText = '-';
-      let percentText = '-';
-      let attemptText = '<span class="badge-pill bg-neutral">ยังไม่ทำ</span>';
-
-      if (row.status === 'PASS') {
-        statusBadge = `<span class="badge-status-pass"><i class="fa-solid fa-circle-check"></i> ผ่าน (PASS)</span>`;
-        scoreText = `<strong style="color:#0369a1;">${row.score}</strong> / ${row.maxScore}`;
-        percentText = `<strong style="color:#059669;">${row.percentage}%</strong>`;
-        attemptText = `<span class="badge-pill bg-success">รอบที่ ${row.attemptCount} (ผ่าน 🎉)</span>`;
-      } else if (row.status === 'FAIL') {
-        statusBadge = `<span class="badge-status-fail"><i class="fa-solid fa-circle-xmark"></i> ยังไม่ผ่าน (FAIL)</span>`;
-        scoreText = `<strong style="color:#0369a1;">${row.score}</strong> / ${row.maxScore}`;
-        percentText = `<strong style="color:#dc2626;">${row.percentage}%</strong>`;
-        attemptText = `<span class="badge-pill bg-warning text-dark">รอบที่ ${row.attemptCount} (ต้องทำใหม่)</span>`;
-      } else {
-        statusBadge = `<span class="badge-status-pending"><i class="fa-solid fa-clock"></i> ยังไม่เสร็จ / ยังไม่สอบ</span>`;
-        scoreText = `<span class="text-muted">-</span>`;
-        percentText = `<span class="text-muted">-</span>`;
-        attemptText = `<span class="badge-pill bg-neutral">ยังไม่ได้ทำ</span>`;
-      }
-
-      tr.innerHTML = `
-        <td>${idx + 1}</td>
-        <td><strong>${row.empId}</strong></td>
-        <td>${row.fullName}</td>
-        <td>${row.department}</td>
-        <td>${statusBadge}</td>
-        <td>${scoreText}</td>
-        <td>${percentText}</td>
-        <td>${attemptText}</td>
-        <td>${row.latestTimestamp}</td>
-      `;
-      dashTableBody.appendChild(tr);
-    });
+    // 6. แสดงผลตาราง (Overview หรือ Socrative Matrix)
+    renderTableViews(filteredList);
   }
 
+  /**
+   * 📊 Socrative Item Analysis (% ถูกรายข้อ 1 - 25)
+   */
+  function renderSocrativeItemAnalysis(evaluatedList) {
+    if (!socrativeAnalysisGrid) return;
+    socrativeAnalysisGrid.innerHTML = '';
+
+    const testTakers = evaluatedList.filter(e => e.status !== 'PENDING');
+    const takersCount = testTakers.length;
+
+    for (let qId = 1; qId <= 25; qId++) {
+      let correct = 0;
+      let wrong = 0;
+
+      if (takersCount > 0) {
+        testTakers.forEach(t => {
+          const ansObj = (t.answers || []).find(a => (a.q === qId || a.questionId === qId));
+          if (ansObj) {
+            if (ansObj.isCorrect === true || ansObj.score === 1) {
+              correct++;
+            } else {
+              wrong++;
+            }
+          }
+        });
+      }
+
+      const pct = takersCount > 0 ? Math.round((correct / takersCount) * 100) : 0;
+      let chipClass = 'chip-na';
+      if (takersCount > 0) {
+        if (pct >= 80) chipClass = 'chip-high';
+        else if (pct >= 50) chipClass = 'chip-med';
+        else chipClass = 'chip-low';
+      }
+
+      const qData = orientationQuizEngine.questions.find(q => q.id === qId);
+      const qText = qData ? qData.question : `ข้อที่ ${qId}`;
+      const qKey = qData ? (qData.answer ? 'ถูก (True)' : 'ผิด (False)') : '-';
+
+      const chip = document.createElement('div');
+      chip.className = `socrative-chip ${chipClass}`;
+      chip.title = `ข้อ ${qId}: ${qText}\nเฉลย: ${qKey}\nตอบถูก: ${correct}/${takersCount} คน (${pct}%)`;
+      chip.innerHTML = `
+        <span class="chip-q-num">ข้อ ${qId}</span>
+        <span class="chip-pct">${takersCount > 0 ? pct + '%' : '-'}</span>
+      `;
+      chip.addEventListener('click', () => {
+        alert(
+          `📊 สถิติรายข้อแนว Socrative - ข้อที่ ${qId}\n\n` +
+          `โจทย์: ${qText}\n\n` +
+          `เฉลย: ${qKey}\n` +
+          `-----------------------------------\n` +
+          `ผู้เข้าสอบทั้งหมด: ${takersCount} คน\n` +
+          `ตอบถูกต้อง: ${correct} คน (${pct}%)\n` +
+          `ตอบผิด: ${wrong} คน (${100 - pct}%)\n\n` +
+          (qData && qData.explanation ? `คำอธิบายเฉลย: ${qData.explanation}` : '')
+        );
+      });
+      socrativeAnalysisGrid.appendChild(chip);
+    }
+  }
+
+  /**
+   * แสดงผลตาราง 2 โหมด: Overview และ Socrative Grid
+   */
+  function renderTableViews(filteredList) {
+    if (!dashTableHead || !dashTableBody) return;
+
+    if (currentDashboardView === 'overview') {
+      // 1. Overview Table Header
+      dashTableHead.innerHTML = `
+        <tr>
+          <th>ลำดับ</th>
+          <th>รหัสพนักงาน</th>
+          <th>ชื่อ - นามสกุล</th>
+          <th>แผนก</th>
+          <th>สถานะผลสอบ</th>
+          <th>คะแนนล่าสุด</th>
+          <th>คิดเป็น %</th>
+          <th>รอบที่ทำสอบ</th>
+          <th>วัน-เวลาที่ส่งล่าสุด</th>
+          <th style="text-align:center;">ตรวจคำตอบ 25 ข้อ</th>
+        </tr>
+      `;
+      if (dashTableFoot) dashTableFoot.classList.add('hidden');
+
+      dashTableBody.innerHTML = '';
+      if (filteredList.length === 0) {
+        dashTableBody.innerHTML = `
+          <tr>
+            <td colspan="10" class="text-center" style="padding: 2.5rem; color: #64748b;">
+              <i class="fa-solid fa-inbox" style="font-size: 2.2rem; display: block; margin-bottom: 0.6rem; color: #94a3b8;"></i>
+              ไม่พบข้อมูลตามเงื่อนไขที่เลือก
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      filteredList.forEach((row, idx) => {
+        const tr = document.createElement('tr');
+
+        let statusBadge = '';
+        let scoreText = '-';
+        let percentText = '-';
+        let attemptText = '<span class="badge-pill bg-neutral">ยังไม่ทำ</span>';
+
+        if (row.status === 'PASS') {
+          statusBadge = `<span class="badge-status-pass"><i class="fa-solid fa-circle-check"></i> ผ่าน (PASS)</span>`;
+          scoreText = `<strong style="color:#0369a1;">${row.score}</strong> / ${row.maxScore}`;
+          percentText = `<strong style="color:#059669;">${row.percentage}%</strong>`;
+          attemptText = `<span class="badge-pill bg-success">รอบที่ ${row.attemptCount} (ผ่าน 🎉)</span>`;
+        } else if (row.status === 'FAIL') {
+          statusBadge = `<span class="badge-status-fail"><i class="fa-solid fa-circle-xmark"></i> ยังไม่ผ่าน (FAIL)</span>`;
+          scoreText = `<strong style="color:#0369a1;">${row.score}</strong> / ${row.maxScore}`;
+          percentText = `<strong style="color:#dc2626;">${row.percentage}%</strong>`;
+          attemptText = `<span class="badge-pill bg-warning text-dark">รอบที่ ${row.attemptCount} (ต้องทำใหม่)</span>`;
+        } else {
+          statusBadge = `<span class="badge-status-pending"><i class="fa-solid fa-clock"></i> ยังไม่เสร็จ / ยังไม่สอบ</span>`;
+          scoreText = `<span class="text-muted">-</span>`;
+          percentText = `<span class="text-muted">-</span>`;
+          attemptText = `<span class="badge-pill bg-neutral">ยังไม่ได้ทำ</span>`;
+        }
+
+        const actionBtn = row.status !== 'PENDING'
+          ? `<button type="button" class="btn btn-outline btn-sm btn-view-emp-q" data-empid="${row.empId}"><i class="fa-solid fa-file-lines"></i> ตรวจ 25 ข้อ</button>`
+          : `<span class="text-muted" style="font-size:0.85rem;">-</span>`;
+
+        tr.innerHTML = `
+          <td>${idx + 1}</td>
+          <td><strong>${row.empId}</strong></td>
+          <td>${row.fullName}</td>
+          <td>${row.department}</td>
+          <td>${statusBadge}</td>
+          <td>${scoreText}</td>
+          <td>${percentText}</td>
+          <td>${attemptText}</td>
+          <td>${row.latestTimestamp}</td>
+          <td style="text-align:center;">${actionBtn}</td>
+        `;
+
+        const btnView = tr.querySelector('.btn-view-emp-q');
+        if (btnView) {
+          btnView.addEventListener('click', () => showEmployeeSocrativeDetail(row));
+        }
+
+        dashTableBody.appendChild(tr);
+      });
+
+    } else {
+      // 2. Socrative Matrix Table View (แสดงรายข้อ 1 - 25 ชัดเจน)
+      let headHtml = `
+        <tr>
+          <th>ลำดับ</th>
+          <th>รหัส</th>
+          <th>ชื่อ - นามสกุล</th>
+          <th>แผนก</th>
+          <th>คะแนน</th>
+          <th>%</th>
+          <th>สถานะ</th>
+      `;
+      for (let q = 1; q <= 25; q++) {
+        headHtml += `<th style="text-align:center; min-width: 44px;" title="ข้อที่ ${q}">ข้อ ${q}</th>`;
+      }
+      headHtml += `<th style="text-align:center;">ตรวจละเอียด</th></tr>`;
+      dashTableHead.innerHTML = headHtml;
+
+      dashTableBody.innerHTML = '';
+      if (filteredList.length === 0) {
+        dashTableBody.innerHTML = `
+          <tr>
+            <td colspan="33" class="text-center" style="padding: 2.5rem; color: #64748b;">
+              <i class="fa-solid fa-inbox" style="font-size: 2.2rem; display: block; margin-bottom: 0.6rem; color: #94a3b8;"></i>
+              ไม่พบข้อมูลตามเงื่อนไขที่เลือก
+            </td>
+          </tr>
+        `;
+        if (dashTableFoot) dashTableFoot.classList.add('hidden');
+        return;
+      }
+
+      // วนลูปสร้างแถวพนักงานแต่ละคนในตาราง Socrative
+      filteredList.forEach((row, idx) => {
+        const tr = document.createElement('tr');
+
+        let statusBadge = '';
+        let scoreText = row.score !== null ? `<strong style="color:#0369a1;">${row.score}</strong>/25` : '-';
+        let percentText = row.percentage !== null ? `<strong>${row.percentage}%</strong>` : '-';
+
+        if (row.status === 'PASS') {
+          statusBadge = `<span class="badge-status-pass" style="padding:0.2rem 0.5rem; font-size:0.75rem;">ผ่าน</span>`;
+        } else if (row.status === 'FAIL') {
+          statusBadge = `<span class="badge-status-fail" style="padding:0.2rem 0.5rem; font-size:0.75rem;">ไม่ผ่าน</span>`;
+        } else {
+          statusBadge = `<span class="badge-status-pending" style="padding:0.2rem 0.5rem; font-size:0.75rem;">ยังไม่ทำ</span>`;
+        }
+
+        let rowHtml = `
+          <td>${idx + 1}</td>
+          <td><strong>${row.empId}</strong></td>
+          <td style="white-space:nowrap;">${row.fullName}</td>
+          <td>${row.department}</td>
+          <td>${scoreText}</td>
+          <td>${percentText}</td>
+          <td>${statusBadge}</td>
+        `;
+
+        // สร้างช่องสัญลักษณ์ Socrative สำหรับข้อ 1 - 25
+        const answerMap = {};
+        (row.answers || []).forEach(a => {
+          const qId = a.q !== undefined ? a.q : a.questionId;
+          if (qId) answerMap[qId] = a;
+        });
+
+        for (let q = 1; q <= 25; q++) {
+          const item = answerMap[q];
+          if (!item || row.status === 'PENDING') {
+            rowHtml += `<td style="text-align:center;"><span class="socrative-cell pending">-</span></td>`;
+          } else {
+            const isRight = (item.isCorrect === true || item.score === 1);
+            const uAnsStr = item.ans === true ? 'ถูก' : (item.ans === false ? 'ผิด' : '-');
+            if (isRight) {
+              rowHtml += `<td style="text-align:center;"><span class="socrative-cell pass" title="ข้อ ${q}: ถูก (พนักงานตอบ: ${uAnsStr})">✓</span></td>`;
+            } else {
+              rowHtml += `<td style="text-align:center;"><span class="socrative-cell fail" title="ข้อ ${q}: ผิด (พนักงานตอบ: ${uAnsStr})">✗</span></td>`;
+            }
+          }
+        }
+
+        const actionBtn = row.status !== 'PENDING'
+          ? `<button type="button" class="btn btn-outline btn-sm btn-view-emp-q" data-empid="${row.empId}"><i class="fa-solid fa-eye"></i></button>`
+          : `<span class="text-muted">-</span>`;
+
+        rowHtml += `<td style="text-align:center;">${actionBtn}</td>`;
+        tr.innerHTML = rowHtml;
+
+        const btnView = tr.querySelector('.btn-view-emp-q');
+        if (btnView) {
+          btnView.addEventListener('click', () => showEmployeeSocrativeDetail(row));
+        }
+
+        dashTableBody.appendChild(tr);
+      });
+
+      // 3. แถวสรุปท้ายตารางแนว Socrative (Class Accuracy %)
+      if (dashTableFoot) {
+        const testTakers = filteredList.filter(e => e.status !== 'PENDING');
+        const takersCount = testTakers.length;
+
+        let footHtml = `
+          <tr class="socrative-summary-row">
+            <td colspan="7" style="text-align:right; font-weight:700; color:#0369a1;">
+              <i class="fa-solid fa-chart-column"></i> % ตอบถูกรายข้อ (Accuracy):
+            </td>
+        `;
+
+        for (let q = 1; q <= 25; q++) {
+          let correct = 0;
+          if (takersCount > 0) {
+            testTakers.forEach(t => {
+              const ansObj = (t.answers || []).find(a => (a.q === q || a.questionId === q));
+              if (ansObj && (ansObj.isCorrect === true || ansObj.score === 1)) {
+                correct++;
+              }
+            });
+          }
+          const pct = takersCount > 0 ? Math.round((correct / takersCount) * 100) : 0;
+          let colorStyle = '#94a3b8';
+          if (takersCount > 0) {
+            if (pct >= 80) colorStyle = '#059669';
+            else if (pct >= 50) colorStyle = '#d97706';
+            else colorStyle = '#dc2626';
+          }
+          footHtml += `<td style="text-align:center; font-weight:800; color:${colorStyle};">${takersCount > 0 ? pct + '%' : '-'}</td>`;
+        }
+
+        footHtml += `<td></td></tr>`;
+        dashTableFoot.innerHTML = footHtml;
+        dashTableFoot.classList.remove('hidden');
+      }
+    }
+  }
+
+  /**
+   * 👁️ Modal ผลการสอบ 25 ข้อ รายบุคคลแนว Socrative
+   */
+  function showEmployeeSocrativeDetail(person) {
+    if (!modalEmployeeDetail) return;
+
+    modalEmpDetailTitle.innerHTML = `<i class="fa-solid fa-file-lines text-primary"></i> ผลสอบ 25 ข้อแนว Socrative: ${person.fullName}`;
+    modalEmpDetailSubtitle.textContent = `รหัสพนักงาน: ${person.empId} | แผนก: ${person.department} | รอบที่ทำ: ครั้งที่ ${person.attemptCount || 1}`;
+
+    const isPassed = person.status === 'PASS';
+    modalEmpDetailMeta.innerHTML = `
+      <div class="emp-detail-score-box">
+        <span class="score-big">${person.score !== null ? person.score : 0}</span>
+        <span style="font-size:1.4rem; color:#64748b;">/ 25</span>
+        <span class="badge-pill ${isPassed ? 'bg-success' : 'bg-danger'}" style="margin-left:0.75rem; font-size:1rem; padding:0.35rem 1rem;">
+          ${isPassed ? '✓ ผ่านเกณฑ์ (≥ 80%)' : '✗ ยังไม่ผ่านเกณฑ์'}
+        </span>
+      </div>
+      <div>
+        <div style="font-size:1.15rem; font-weight:700; color:#0369a1;">คิดเป็น ${person.percentage !== null ? person.percentage : 0}%</div>
+        <small class="text-muted">ส่งเมื่อ: ${person.latestTimestamp || '-'}</small>
+      </div>
+    `;
+
+    // Map answers by question ID
+    const answerMap = {};
+    (person.answers || []).forEach(a => {
+      const qId = a.q !== undefined ? a.q : a.questionId;
+      if (qId) answerMap[qId] = a;
+    });
+
+    modalEmpDetailList.innerHTML = '';
+    orientationQuizEngine.questions.forEach((q, idx) => {
+      const qId = q.id;
+      const userAnsObj = answerMap[qId];
+      const hasAnswered = userAnsObj !== undefined;
+      const userAnsVal = hasAnswered ? userAnsObj.ans : undefined;
+      const isCorrect = hasAnswered ? (userAnsObj.isCorrect === true || userAnsObj.score === 1) : false;
+
+      const userAnsStr = userAnsVal === true ? 'ถูก (True)' : (userAnsVal === false ? 'ผิด (False)' : 'ไม่ได้ตอบ');
+      const correctAnsStr = q.answer === true ? 'ถูก (True)' : 'ผิด (False)';
+
+      const card = document.createElement('div');
+      card.className = `emp-q-row ${isCorrect ? 'pass' : 'fail'}`;
+      card.innerHTML = `
+        <div class="emp-q-header">
+          <span style="color:#0369a1; font-weight:700;">ข้อที่ ${idx + 1} (ข้อสอบ ID: ${qId})</span>
+          <span class="emp-ans-badge ${isCorrect ? 'correct' : 'wrong'}">
+            ${isCorrect ? '<i class="fa-solid fa-circle-check"></i> ตอบถูก (+1 คะแนน)' : '<i class="fa-solid fa-circle-xmark"></i> ตอบผิด (0 คะแนน)'}
+          </span>
+        </div>
+        <div class="emp-q-text">${escapeHtml(q.question)}</div>
+        <div class="emp-q-footer">
+          <div>
+            <strong>คำตอบของพนักงาน:</strong> 
+            <span style="font-weight:700; color:${isCorrect ? '#059669' : '#dc2626'};">${userAnsStr}</span>
+          </div>
+          <div>
+            <strong>เฉลยที่ถูกต้อง:</strong> 
+            <span style="font-weight:700; color:#0369a1;">${correctAnsStr}</span>
+          </div>
+        </div>
+        ${q.explanation ? `<div style="font-size:0.85rem; color:#64748b; background:#f8fafc; padding:0.4rem 0.75rem; border-radius:4px; border:1px solid #e2e8f0; margin-top:0.35rem;"><i class="fa-solid fa-lightbulb text-warning"></i> <strong>คำอธิบาย:</strong> ${escapeHtml(q.explanation)}</div>` : ''}
+      `;
+      modalEmpDetailList.appendChild(card);
+    });
+
+    modalEmployeeDetail.classList.remove('hidden');
+  }
+
+  /**
+   * 📥 ดาวน์โหลดผลสอบออกมาเป็นไฟล์ CSV รูปแบบแนว Socrative
+   * มีคอลัมน์ข้อ 1 - 25 แยกรายข้อ พร้อมสรุป % ถูกต้อง
+   */
   function exportDashboardCsv() {
     const search = (dashSearchInput.value || '').trim().toLowerCase();
     const filterStatus = dashFilterStatus.value;
 
-    const rows = dashTableBody.querySelectorAll('tr');
-    if (!rows || rows.length === 0) {
-      alert("ไม่มีข้อมูลที่จะส่งออก");
-      return;
-    }
-
-    let csvContent = "\uFEFFลำดับ,รหัสพนักงาน,ชื่อ-นามสกุล,แผนก,สถานะผลสอบ,คะแนนล่าสุด,คะแนนเต็ม,คิดเป็น %,จำนวนครั้งที่ทำ,วัน-เวลาล่าสุด\n";
-    
-    // Grab all rows
-    const allTableRows = dashTableBody.querySelectorAll('tr');
-    let count = 0;
-    allTableRows.forEach((tr, i) => {
-      const cells = tr.querySelectorAll('td');
-      if (cells.length >= 9) {
-        count++;
-        const num = cells[0].textContent.trim();
-        const empId = cells[1].textContent.trim();
-        const name = cells[2].textContent.trim();
-        const dept = cells[3].textContent.trim();
-        const status = cells[4].textContent.trim();
-        const score = cells[5].textContent.trim();
-        const pct = cells[6].textContent.trim();
-        const attempt = cells[7].textContent.trim();
-        const timestamp = cells[8].textContent.trim();
-
-        csvContent += `"${num}","${empId}","${name}","${dept}","${status}","${score}","25","${pct}","${attempt}","${timestamp}"\n`;
+    const rosterMap = new Map();
+    orientationQuizEngine.employeeDatabase.forEach(emp => {
+      const cleanId = orientationQuizEngine.cleanEmpId(emp.empId);
+      if (cleanId) {
+        rosterMap.set(cleanId, {
+          empId: emp.empId,
+          fullName: emp.fullName || '',
+          department: emp.department || '',
+          submissions: []
+        });
       }
     });
 
-    if (count === 0) {
-      alert("ไม่มีข้อมูลที่จะส่งออก");
+    orientationQuizEngine.submissionsLog.forEach(sub => {
+      const cleanId = orientationQuizEngine.cleanEmpId(sub.empId);
+      if (!cleanId) return;
+      if (!rosterMap.has(cleanId)) {
+        rosterMap.set(cleanId, {
+          empId: sub.empId,
+          fullName: sub.fullName || '',
+          department: sub.department || '',
+          submissions: []
+        });
+      }
+      rosterMap.get(cleanId).submissions.push(sub);
+    });
+
+    const evaluatedList = [];
+    rosterMap.forEach((person) => {
+      const subs = person.submissions;
+      const hasTaken = subs.length > 0;
+      let status = 'PENDING';
+      let latestScore = null;
+      let latestMaxScore = 25;
+      let latestPercent = null;
+      let latestAttempt = 0;
+      let latestTimestamp = '-';
+      let latestAnswers = [];
+
+      if (hasTaken) {
+        const latestSub = subs[0];
+        latestScore = latestSub.score;
+        latestMaxScore = latestSub.maxScore || 25;
+        latestPercent = Math.round((latestScore / latestMaxScore) * 100);
+        latestAttempt = subs.length;
+        latestTimestamp = latestSub.timestamp || '-';
+        latestAnswers = latestSub.answers || [];
+        status = latestScore >= 20 ? 'PASS' : 'FAIL';
+      }
+
+      evaluatedList.push({
+        empId: person.empId,
+        fullName: person.fullName,
+        department: person.department,
+        status: status,
+        score: latestScore,
+        maxScore: latestMaxScore,
+        percentage: latestPercent,
+        attemptCount: latestAttempt,
+        latestTimestamp: latestTimestamp,
+        answers: latestAnswers
+      });
+    });
+
+    const filtered = evaluatedList.filter(item => {
+      const matchSearch = !search ||
+        (item.empId && item.empId.toLowerCase().includes(search)) ||
+        (item.fullName && item.fullName.toLowerCase().includes(search)) ||
+        (item.department && item.department.toLowerCase().includes(search));
+      const matchFilter = filterStatus === 'ALL' || item.status === filterStatus;
+      return matchSearch && matchFilter;
+    });
+
+    if (filtered.length === 0) {
+      alert("ไม่มีข้อมูลที่จะส่งออกตามเงื่อนไขที่เลือก");
       return;
     }
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    // 1. หัวตารางคอลัมน์แนว Socrative
+    let csv = "\uFEFFลำดับ,รหัสพนักงาน,ชื่อ-นามสกุล,แผนก,สถานะผลสอบ,คะแนนล่าสุด,คะแนนเต็ม,คิดเป็น %,รอบที่ทำ,วัน-เวลาล่าสุด";
+    for (let q = 1; q <= 25; q++) {
+      csv += `,ข้อ ${q}`;
+    }
+    csv += "\n";
+
+    // 2. แถวโจทย์คำถาม 25 ข้อ (Question Prompts)
+    csv += `"โจทย์คำถาม",,,,,,,,,`;
+    for (let qId = 1; qId <= 25; qId++) {
+      const qObj = orientationQuizEngine.questions.find(q => q.id === qId);
+      const text = qObj ? qObj.question.replace(/"/g, '""') : `ข้อ ${qId}`;
+      csv += `,"${text}"`;
+    }
+    csv += "\n";
+
+    // 3. แถวเฉลยที่ถูกต้อง 25 ข้อ (Correct Answer Keys)
+    csv += `"เฉลยที่ถูกต้อง",,,,,,,,,`;
+    for (let qId = 1; qId <= 25; qId++) {
+      const qObj = orientationQuizEngine.questions.find(q => q.id === qId);
+      const keyStr = qObj ? (qObj.answer ? 'ถูก (True)' : 'ผิด (False)') : '-';
+      csv += `,"${keyStr}"`;
+    }
+    csv += "\n";
+
+    // 4. แถวข้อมูลพนักงานแต่ละคน
+    filtered.forEach((row, i) => {
+      const num = i + 1;
+      const empId = `="${row.empId}"`; // ป้องกัน Excel แปลงเป็น Scientific notation
+      const name = (row.fullName || '').replace(/"/g, '""');
+      const dept = (row.department || '').replace(/"/g, '""');
+      const status = row.status === 'PASS' ? 'ผ่าน (PASS)' : (row.status === 'FAIL' ? 'ไม่ผ่าน (FAIL)' : 'ยังไม่ทำ (PENDING)');
+      const score = row.score !== null ? row.score : '-';
+      const pct = row.percentage !== null ? `${row.percentage}%` : '-';
+      const attempt = row.attemptCount > 0 ? `ครั้งที่ ${row.attemptCount}` : '-';
+      const timestamp = row.latestTimestamp || '-';
+
+      csv += `"${num}","${empId}","${name}","${dept}","${status}","${score}","25","${pct}","${attempt}","${timestamp}"`;
+
+      // ใส่ผลลัพธ์รายข้อ 1 - 25
+      const ansMap = {};
+      (row.answers || []).forEach(a => {
+        const qId = a.q !== undefined ? a.q : a.questionId;
+        if (qId) ansMap[qId] = a;
+      });
+
+      for (let q = 1; q <= 25; q++) {
+        const item = ansMap[q];
+        if (!item || row.status === 'PENDING') {
+          csv += `,"-"`;
+        } else {
+          const isRight = (item.isCorrect === true || item.score === 1);
+          const uAns = item.ans === true ? 'ถูก' : (item.ans === false ? 'ผิด' : '-');
+          if (isRight) {
+            csv += `,"✓ ถูก (${uAns})"`;
+          } else {
+            csv += `,"✗ ผิด (${uAns})"`;
+          }
+        }
+      }
+      csv += "\n";
+    });
+
+    // 5. แถวสรุปด้านล่างสุดแนว Socrative (% ตอบถูกรายข้อ)
+    const testTakers = filtered.filter(e => e.status !== 'PENDING');
+    const takersCount = testTakers.length;
+
+    // แถว Class Accuracy %
+    csv += `"% ความถูกต้องรายข้อ (Class Accuracy)",,,,,,,,,`;
+    for (let q = 1; q <= 25; q++) {
+      let correct = 0;
+      if (takersCount > 0) {
+        testTakers.forEach(t => {
+          const ansObj = (t.answers || []).find(a => (a.q === q || a.questionId === q));
+          if (ansObj && (ansObj.isCorrect === true || ansObj.score === 1)) {
+            correct++;
+          }
+        });
+      }
+      const pct = takersCount > 0 ? Math.round((correct / takersCount) * 100) : 0;
+      csv += `,"${takersCount > 0 ? pct + '%' : '-'}"`;
+    }
+    csv += "\n";
+
+    // แถวจำนวนคนที่ตอบถูก
+    csv += `"จำนวนคนตอบถูกต้อง",,,,,,,,,`;
+    for (let q = 1; q <= 25; q++) {
+      let correct = 0;
+      if (takersCount > 0) {
+        testTakers.forEach(t => {
+          const ansObj = (t.answers || []).find(a => (a.q === q || a.questionId === q));
+          if (ansObj && (ansObj.isCorrect === true || ansObj.score === 1)) {
+            correct++;
+          }
+        });
+      }
+      csv += `,"${correct}/${takersCount}"`;
+    }
+    csv += "\n";
+
+    // สั่งดาวน์โหลดไฟล์
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `orientation_results_export_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `orientation_socrative_results_${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
   }
 
