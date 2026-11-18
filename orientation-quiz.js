@@ -19,6 +19,9 @@ class OrientationQuizEngine {
     // Submissions Log (synced from Google Sheet)
     this.submissionsLog = [];
 
+    // Live Progress Log (Real-time in-progress sync)
+    this.liveProgressLog = [];
+
     this.initDefaultQuestions();
   }
 
@@ -224,6 +227,20 @@ class OrientationQuizEngine {
     } else {
       this.submissionsLog = [];
     }
+  }
+
+  syncLiveProgress(fetchedLiveProgress) {
+    if (Array.isArray(fetchedLiveProgress)) {
+      this.liveProgressLog = fetchedLiveProgress;
+    } else {
+      this.liveProgressLog = [];
+    }
+  }
+
+  getEmployeeLiveProgress(empId) {
+    if (!empId) return null;
+    const target = this.cleanEmpId(empId);
+    return this.liveProgressLog.find(l => this.cleanEmpId(l.empId) === target) || null;
   }
 
   getEmployeeSubmissions(empId) {
