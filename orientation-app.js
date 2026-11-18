@@ -105,6 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const socrativeAnalysisGrid = document.getElementById('socrative-analysis-grid');
   const btnViewSummary = document.getElementById('btn-view-summary');
   const btnViewSocrative = document.getElementById('btn-view-socrative');
+  const toggleLivePolling = document.getElementById('toggle-live-polling');
 
   // Modal Employee Detail Elements (Socrative Individual View)
   const modalEmployeeDetail = document.getElementById('modal-employee-detail');
@@ -145,6 +146,20 @@ document.addEventListener('DOMContentLoaded', () => {
     bindEvents();
     loadCustomQuestionsFromStorage();
     fetchDataFromGoogleSheet();
+    initLivePolling();
+  }
+
+  let livePollInterval = null;
+  function initLivePolling() {
+    if (livePollInterval) clearInterval(livePollInterval);
+    livePollInterval = setInterval(() => {
+      // Polling ทำงานเฉพาะเมื่อ Admin อยู่หน้าแดชบอร์ด และเปิดสวิตช์ Live Polling
+      if (isAdminLoggedIn && !screenDashboard.classList.contains('hidden')) {
+        if (!toggleLivePolling || toggleLivePolling.checked) {
+          fetchDataFromGoogleSheet(true);
+        }
+      }
+    }, 5000);
   }
 
   function bindEvents() {
@@ -226,6 +241,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const q = orientationQuizEngine.getCurrentQuestion();
       orientationQuizEngine.clearAnswer(q.id);
       renderCurrentQuestion();
+      triggerLiveProgressSync();
     });
 
     btnSubmitExam.addEventListener('click', submitExamConfirmation);
@@ -437,13 +453,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Fetch employees and past submissions from Google Sheet
-  async function fetchDataFromGoogleSheet() {
+  async function fetchDataFromGoogleSheet(silent = false) {
     if (!googleScriptUrl) return;
     try {
-      lookupSpinner.classList.remove('hidden');
+      if (!silent) lookupSpinner.classList.remove('hidden');
       const resp = await fetch(`${googleScriptUrl}?action=getEmployees&sheet=ผลสอบปฐมนิเทศ`);
       const data = await resp.json();
-      lookupSpinner.classList.add('hidden');
+      if (!silent) lookupSpinner.classList.add('hidden');
 
       if (data.status === 'success') {
         if (Array.isArray(data.employees)) {
@@ -452,10 +468,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (Array.isArray(data.submissions)) {
           orientationQuizEngine.syncSubmissionsLog(data.submissions);
         }
+        if (Array.isArray(data.liveProgress)) {
+          orientationQuizEngine.syncLiveProgress(data.liveProgress);
+        }
         renderDashboard();
       }
     } catch (err) {
-      lookupSpinner.classList.add('hidden');
+      if (!silent) lookupSpinner.classList.add('hidden');
       console.warn("Error fetching data from Google Sheet:", err);
     }
   }
@@ -528,6 +547,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderMatrixButtons();
     renderCurrentQuestion();
     switchScreen(screenQuiz);
+    triggerLiveProgressSync();
   }
 
   function renderMatrixButtons() {
@@ -599,6 +619,7 @@ document.addEventListener('DOMContentLoaded', () => {
       optionBtn.addEventListener('click', () => {
         orientationQuizEngine.setAnswer(q.id, opt.value);
         renderCurrentQuestion();
+        triggerLiveProgressSync();
       });
 
       qOptionsContainer.appendChild(optionBtn);
@@ -703,6 +724,63 @@ document.addEventListener('DOMContentLoaded', () => {
           skippedPillsContainer.appendChild(pill);
         });
       }
+    }
+  }
+
+  // ==========================================
+  // REAL-TIME LIVE PROGRESS BACKGROUND SYNC
+  // ==========================================
+  let liveSyncTimeout = null;
+  function triggerLiveProgressSync() {
+    clearTimeout(liveSyncTimeout);
+    liveSyncTimeout = setTimeout(sendLiveProgressSync, 400);
+  }
+
+  async function sendLiveProgressSync() {
+    if (!googleScriptUrl || !orientationQuizEngine.currentUser || !orientationQuizEngine.currentUser.empId) return;
+
+    const empId = orientationQuizEngine.currentUser.empId;
+    const fullName = orientationQuizEngine.currentUser.fullName || '';
+    const department = orientationQuizEngine.currentUser.department || '';
+    const attempt = orientationQuizEngine.currentUser.attemptNumber || 1;
+    const answeredCount = orientationQuizEngine.getAnsweredCount();
+    const scoreResult = orientationQuizEngine.calculateScore();
+
+    // Map answers by original question ID 1..25
+    const answersMap = {};
+    orientationQuizEngine.activeExamQuestions.forEach(q => {
+      const val = orientationQuizEngine.userAnswers[q.id];
+      if (val !== undefined) {
+        answersMap[q.id] = val;
+      }
+    });
+
+    const payload = {
+      action: 'syncLiveProgress',
+      empId: empId,
+      fullName: fullName,
+      department: department,
+      attemptNumber: attempt,
+      answeredCount: answeredCount,
+      currentScore: scoreResult.totalScore,
+      maxScore: scoreResult.maxScore,
+      percentage: scoreResult.percentage,
+      isPassed: scoreResult.isPassed,
+      isSubmitted: false,
+      answers: answersMap
+    };
+
+    try {
+      fetch(googleScriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload),
+        keepalive: true
+      }).catch(err => {
+        // Non-blocking background catch
+      });
+    } catch (e) {
+      // Non-blocking
     }
   }
 
@@ -915,6 +993,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const subs = person.submissions;
       const hasTaken = subs.length > 0;
 
+      // ตรวจสอบความคืบหน้าแบบสด (Real-time Live Progress)
+      const liveRec = orientationQuizEngine.getEmployeeLiveProgress(person.empId);
+      const isLiveActive = liveRec && (!liveRec.isSubmitted);
+
       let status = 'PENDING';
       let latestScore = null;
       let latestMaxScore = 25;
@@ -922,8 +1004,37 @@ document.addEventListener('DOMContentLoaded', () => {
       let latestAttempt = 0;
       let latestTimestamp = '-';
       let latestAnswers = [];
+      let answeredCount = 0;
 
-      if (hasTaken) {
+      if (isLiveActive) {
+        status = 'IN_PROGRESS';
+        latestScore = liveRec.currentScore !== undefined ? liveRec.currentScore : 0;
+        latestMaxScore = 25;
+        latestPercent = Math.round((latestScore / latestMaxScore) * 100);
+        latestAttempt = liveRec.attemptNumber || (subs.length + 1);
+        answeredCount = liveRec.answeredCount || 0;
+        latestTimestamp = `กำลังทำข้อสอบสด (${answeredCount}/25)`;
+
+        let liveAnswersArr = [];
+        if (Array.isArray(liveRec.answers)) {
+          liveAnswersArr = liveRec.answers;
+        } else if (typeof liveRec.answers === 'object' && liveRec.answers !== null) {
+          for (let qNum = 1; qNum <= 25; qNum++) {
+            const val = liveRec.answers[qNum] !== undefined ? liveRec.answers[qNum] : liveRec.answers[String(qNum)];
+            if (val !== undefined && val !== null) {
+              const qObj = orientationQuizEngine.questions.find(q => q.id === qNum);
+              const isRight = qObj ? (qObj.answer === val) : false;
+              liveAnswersArr.push({
+                q: qNum,
+                ans: val,
+                isCorrect: isRight,
+                score: isRight ? 1 : 0
+              });
+            }
+          }
+        }
+        latestAnswers = liveAnswersArr;
+      } else if (hasTaken) {
         const latestSub = subs[0];
         latestScore = latestSub.score;
         latestMaxScore = latestSub.maxScore || 25;
@@ -931,6 +1042,7 @@ document.addEventListener('DOMContentLoaded', () => {
         latestAttempt = subs.length;
         latestTimestamp = latestSub.timestamp || '-';
         latestAnswers = latestSub.answers || [];
+        answeredCount = 25;
 
         if (latestScore >= 20) {
           status = 'PASS';
@@ -948,6 +1060,7 @@ document.addEventListener('DOMContentLoaded', () => {
         maxScore: latestMaxScore,
         percentage: latestPercent,
         attemptCount: latestAttempt,
+        answeredCount: answeredCount,
         latestTimestamp: latestTimestamp,
         answers: latestAnswers
       });
@@ -957,16 +1070,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const totalCount = evaluatedList.length;
     const passCount = evaluatedList.filter(e => e.status === 'PASS').length;
     const failCount = evaluatedList.filter(e => e.status === 'FAIL').length;
+    const liveCount = evaluatedList.filter(e => e.status === 'IN_PROGRESS').length;
     const pendingCount = evaluatedList.filter(e => e.status === 'PENDING').length;
 
     const passPct = totalCount > 0 ? ((passCount / totalCount) * 100).toFixed(1) : '0.0';
     const failPct = totalCount > 0 ? ((failCount / totalCount) * 100).toFixed(1) : '0.0';
-    const pendingPct = totalCount > 0 ? ((pendingCount / totalCount) * 100).toFixed(1) : '0.0';
+    const pendingPct = totalCount > 0 ? (((pendingCount + liveCount) / totalCount) * 100).toFixed(1) : '0.0';
 
     dashTotalEmp.textContent = `${totalCount} คน`;
     dashPassCount.textContent = `${passCount} คน (${passPct}%)`;
     dashFailCount.textContent = `${failCount} คน (${failPct}%)`;
-    dashPendingCount.textContent = `${pendingCount} คน (${pendingPct}%)`;
+    if (liveCount > 0) {
+      dashPendingCount.innerHTML = `<span style="color:#0284c7; font-weight:700;"><i class="fa-solid fa-spinner fa-spin"></i> กำลังสอบ ${liveCount} คน</span> | รอ ${pendingCount} คน`;
+    } else {
+      dashPendingCount.textContent = `${pendingCount} คน (${pendingPct}%)`;
+    }
 
     // 4. สรุปความถูกต้องรายข้อแนว Socrative (Item Analysis)
     renderSocrativeItemAnalysis(evaluatedList);
@@ -1104,6 +1222,11 @@ document.addEventListener('DOMContentLoaded', () => {
           scoreText = `<strong style="color:#0369a1;">${row.score}</strong> / ${row.maxScore}`;
           percentText = `<strong style="color:#dc2626;">${row.percentage}%</strong>`;
           attemptText = `<span class="badge-pill bg-warning text-dark">รอบที่ ${row.attemptCount} (ต้องทำใหม่)</span>`;
+        } else if (row.status === 'IN_PROGRESS') {
+          statusBadge = `<span class="badge-status-live"><i class="fa-solid fa-spinner fa-spin"></i> กำลังสอบ (${row.answeredCount || 0}/25)</span>`;
+          scoreText = `<strong style="color:#0284c7;">${row.score}</strong> / ${row.maxScore} <small style="color:#64748b;">(สด)</small>`;
+          percentText = `<strong style="color:#0284c7;">${row.percentage}%</strong>`;
+          attemptText = `<span class="badge-pill bg-primary-soft">รอบที่ ${row.attemptCount} (กำลังทำ)</span>`;
         } else {
           statusBadge = `<span class="badge-status-pending"><i class="fa-solid fa-clock"></i> ยังไม่เสร็จ / ยังไม่สอบ</span>`;
           scoreText = `<span class="text-muted">-</span>`;
@@ -1112,7 +1235,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const actionBtn = row.status !== 'PENDING'
-          ? `<button type="button" class="btn btn-outline btn-sm btn-view-emp-q" data-empid="${row.empId}"><i class="fa-solid fa-file-lines"></i> ตรวจ 25 ข้อ</button>`
+          ? `<button type="button" class="btn btn-outline btn-sm btn-view-emp-q" data-empid="${row.empId}"><i class="fa-solid fa-file-lines"></i> ${row.status === 'IN_PROGRESS' ? 'ดูคำตอบสด' : 'ตรวจ 25 ข้อ'}</button>`
           : `<span class="text-muted" style="font-size:0.85rem;">-</span>`;
 
         tr.innerHTML = `
@@ -1180,6 +1303,10 @@ document.addEventListener('DOMContentLoaded', () => {
           statusBadge = `<span class="badge-status-pass" style="padding:0.2rem 0.5rem; font-size:0.75rem;">ผ่าน</span>`;
         } else if (row.status === 'FAIL') {
           statusBadge = `<span class="badge-status-fail" style="padding:0.2rem 0.5rem; font-size:0.75rem;">ไม่ผ่าน</span>`;
+        } else if (row.status === 'IN_PROGRESS') {
+          statusBadge = `<span class="badge-status-live" style="padding:0.2rem 0.5rem; font-size:0.75rem;"><i class="fa-solid fa-spinner fa-spin"></i> สด (${row.answeredCount || 0}/25)</span>`;
+          scoreText = `<strong style="color:#0284c7;">${row.score}</strong>/25`;
+          percentText = `<strong style="color:#0284c7;">${row.percentage}%</strong>`;
         } else {
           statusBadge = `<span class="badge-status-pending" style="padding:0.2rem 0.5rem; font-size:0.75rem;">ยังไม่ทำ</span>`;
         }
@@ -1280,17 +1407,25 @@ document.addEventListener('DOMContentLoaded', () => {
     modalEmpDetailSubtitle.textContent = `รหัสพนักงาน: ${person.empId} | แผนก: ${person.department} | รอบที่ทำ: ครั้งที่ ${person.attemptCount || 1}`;
 
     const isPassed = person.status === 'PASS';
+    const isLive = person.status === 'IN_PROGRESS';
+    let statusBadgeHtml = '';
+    if (isLive) {
+      statusBadgeHtml = `<span class="badge-status-live" style="margin-left:0.75rem; font-size:0.95rem; padding:0.35rem 0.9rem;"><i class="fa-solid fa-spinner fa-spin"></i> กำลังสอบสด (${person.answeredCount || 0}/25)</span>`;
+    } else {
+      statusBadgeHtml = `<span class="badge-pill ${isPassed ? 'bg-success' : 'bg-danger'}" style="margin-left:0.75rem; font-size:1rem; padding:0.35rem 1rem;">
+        ${isPassed ? '✓ ผ่านเกณฑ์ (≥ 80%)' : '✗ ยังไม่ผ่านเกณฑ์'}
+      </span>`;
+    }
+
     modalEmpDetailMeta.innerHTML = `
       <div class="emp-detail-score-box">
         <span class="score-big">${person.score !== null ? person.score : 0}</span>
         <span style="font-size:1.4rem; color:#64748b;">/ 25</span>
-        <span class="badge-pill ${isPassed ? 'bg-success' : 'bg-danger'}" style="margin-left:0.75rem; font-size:1rem; padding:0.35rem 1rem;">
-          ${isPassed ? '✓ ผ่านเกณฑ์ (≥ 80%)' : '✗ ยังไม่ผ่านเกณฑ์'}
-        </span>
+        ${statusBadgeHtml}
       </div>
       <div>
         <div style="font-size:1.15rem; font-weight:700; color:#0369a1;">คิดเป็น ${person.percentage !== null ? person.percentage : 0}%</div>
-        <small class="text-muted">ส่งเมื่อ: ${person.latestTimestamp || '-'}</small>
+        <small class="text-muted">${isLive ? 'สถานะ: กำลังตอบข้อสอบสด' : 'ส่งเมื่อ: ' + (person.latestTimestamp || '-')}</small>
       </div>
     `;
 
@@ -1309,23 +1444,35 @@ document.addEventListener('DOMContentLoaded', () => {
       const userAnsVal = hasAnswered ? userAnsObj.ans : undefined;
       const isCorrect = hasAnswered ? (userAnsObj.isCorrect === true || userAnsObj.score === 1) : false;
 
-      const userAnsStr = userAnsVal === true ? 'ถูก (True)' : (userAnsVal === false ? 'ผิด (False)' : 'ไม่ได้ตอบ');
+      const userAnsStr = userAnsVal === true ? 'ถูก (True)' : (userAnsVal === false ? 'ผิด (False)' : 'ยังไม่ได้ตอบ');
       const correctAnsStr = q.answer === true ? 'ถูก (True)' : 'ผิด (False)';
 
+      let cardClass = 'emp-q-row';
+      let badgeHtml = '';
+
+      if (!hasAnswered) {
+        cardClass += ' pending';
+        badgeHtml = `<span class="emp-ans-badge" style="background:#f1f5f9; color:#64748b; border:1px solid #cbd5e1;"><i class="fa-solid fa-clock"></i> ยังไม่ได้ตอบ</span>`;
+      } else if (isCorrect) {
+        cardClass += ' pass';
+        badgeHtml = `<span class="emp-ans-badge correct"><i class="fa-solid fa-circle-check"></i> ตอบถูก (+1 คะแนน)</span>`;
+      } else {
+        cardClass += ' fail';
+        badgeHtml = `<span class="emp-ans-badge wrong"><i class="fa-solid fa-circle-xmark"></i> ตอบผิด (0 คะแนน)</span>`;
+      }
+
       const card = document.createElement('div');
-      card.className = `emp-q-row ${isCorrect ? 'pass' : 'fail'}`;
+      card.className = cardClass;
       card.innerHTML = `
         <div class="emp-q-header">
           <span style="color:#0369a1; font-weight:700;">ข้อที่ ${idx + 1} (ข้อสอบ ID: ${qId})</span>
-          <span class="emp-ans-badge ${isCorrect ? 'correct' : 'wrong'}">
-            ${isCorrect ? '<i class="fa-solid fa-circle-check"></i> ตอบถูก (+1 คะแนน)' : '<i class="fa-solid fa-circle-xmark"></i> ตอบผิด (0 คะแนน)'}
-          </span>
+          ${badgeHtml}
         </div>
         <div class="emp-q-text">${escapeHtml(q.question)}</div>
         <div class="emp-q-footer">
           <div>
             <strong>คำตอบของพนักงาน:</strong> 
-            <span style="font-weight:700; color:${isCorrect ? '#059669' : '#dc2626'};">${userAnsStr}</span>
+            <span style="font-weight:700; color:${!hasAnswered ? '#64748b' : (isCorrect ? '#059669' : '#dc2626')};">${userAnsStr}</span>
           </div>
           <div>
             <strong>เฉลยที่ถูกต้อง:</strong> 
@@ -1379,6 +1526,11 @@ document.addEventListener('DOMContentLoaded', () => {
     rosterMap.forEach((person) => {
       const subs = person.submissions;
       const hasTaken = subs.length > 0;
+
+      // ตรวจสอบความคืบหน้าแบบสด (Real-time Live Progress)
+      const liveRec = orientationQuizEngine.getEmployeeLiveProgress(person.empId);
+      const isLiveActive = liveRec && (!liveRec.isSubmitted);
+
       let status = 'PENDING';
       let latestScore = null;
       let latestMaxScore = 25;
@@ -1387,7 +1539,34 @@ document.addEventListener('DOMContentLoaded', () => {
       let latestTimestamp = '-';
       let latestAnswers = [];
 
-      if (hasTaken) {
+      if (isLiveActive) {
+        status = 'IN_PROGRESS';
+        latestScore = liveRec.currentScore !== undefined ? liveRec.currentScore : 0;
+        latestMaxScore = 25;
+        latestPercent = Math.round((latestScore / latestMaxScore) * 100);
+        latestAttempt = liveRec.attemptNumber || (subs.length + 1);
+        latestTimestamp = `กำลังทำข้อสอบสด (${liveRec.answeredCount || 0}/25)`;
+
+        let liveAnswersArr = [];
+        if (Array.isArray(liveRec.answers)) {
+          liveAnswersArr = liveRec.answers;
+        } else if (typeof liveRec.answers === 'object' && liveRec.answers !== null) {
+          for (let qNum = 1; qNum <= 25; qNum++) {
+            const val = liveRec.answers[qNum] !== undefined ? liveRec.answers[qNum] : liveRec.answers[String(qNum)];
+            if (val !== undefined && val !== null) {
+              const qObj = orientationQuizEngine.questions.find(q => q.id === qNum);
+              const isRight = qObj ? (qObj.answer === val) : false;
+              liveAnswersArr.push({
+                q: qNum,
+                ans: val,
+                isCorrect: isRight,
+                score: isRight ? 1 : 0
+              });
+            }
+          }
+        }
+        latestAnswers = liveAnswersArr;
+      } else if (hasTaken) {
         const latestSub = subs[0];
         latestScore = latestSub.score;
         latestMaxScore = latestSub.maxScore || 25;
@@ -1457,7 +1636,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const empId = `="${row.empId}"`; // ป้องกัน Excel แปลงเป็น Scientific notation
       const name = (row.fullName || '').replace(/"/g, '""');
       const dept = (row.department || '').replace(/"/g, '""');
-      const status = row.status === 'PASS' ? 'ผ่าน (PASS)' : (row.status === 'FAIL' ? 'ไม่ผ่าน (FAIL)' : 'ยังไม่ทำ (PENDING)');
+      const status = row.status === 'PASS' ? 'ผ่าน (PASS)' : (row.status === 'FAIL' ? 'ไม่ผ่าน (FAIL)' : (row.status === 'IN_PROGRESS' ? 'กำลังสอบ (Live)' : 'ยังไม่ทำ (PENDING)'));
       const score = row.score !== null ? row.score : '-';
       const pct = row.percentage !== null ? `${row.percentage}%` : '-';
       const attempt = row.attemptCount > 0 ? `ครั้งที่ ${row.attemptCount}` : '-';
