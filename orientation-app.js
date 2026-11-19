@@ -1414,11 +1414,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         for (let q = 1; q <= 25; q++) {
           const item = answerMap[q];
-          if (!item || row.status === 'PENDING') {
-            rowHtml += `<td style="text-align:center;"><span class="socrative-cell pending">-</span></td>`;
+          const hasAnswered = item && item.ans !== undefined && item.ans !== null;
+
+          if (!hasAnswered || row.status === 'PENDING') {
+            // ข้อที่ยังไม่ได้ตอบ ให้แสดงเป็นค่าว่าง (Blank) ไม่ใส่เครื่องหมายใดๆ
+            rowHtml += `<td style="text-align:center;"><span class="socrative-cell blank" title="ข้อ ${q}: ยังไม่ได้ตอบ">&nbsp;</span></td>`;
           } else {
             const isRight = (item.isCorrect === true || item.score === 1);
-            const uAnsStr = item.ans === true ? 'ถูก' : (item.ans === false ? 'ผิด' : '-');
+            const uAnsStr = item.ans === true ? 'ถูก' : (item.ans === false ? 'ผิด' : '');
             if (isRight) {
               rowHtml += `<td style="text-align:center;"><span class="socrative-cell pass" title="ข้อ ${q}: ถูก (พนักงานตอบ: ${uAnsStr})">✓</span></td>`;
             } else {
@@ -1524,11 +1527,11 @@ document.addEventListener('DOMContentLoaded', () => {
     orientationQuizEngine.questions.forEach((q, idx) => {
       const qId = q.id;
       const userAnsObj = answerMap[qId];
-      const hasAnswered = userAnsObj !== undefined;
+      const hasAnswered = userAnsObj !== undefined && userAnsObj.ans !== undefined && userAnsObj.ans !== null;
       const userAnsVal = hasAnswered ? userAnsObj.ans : undefined;
       const isCorrect = hasAnswered ? (userAnsObj.isCorrect === true || userAnsObj.score === 1) : false;
 
-      const userAnsStr = userAnsVal === true ? 'ถูก (True)' : (userAnsVal === false ? 'ผิด (False)' : 'ยังไม่ได้ตอบ');
+      const userAnsStr = !hasAnswered ? '<span style="color:#94a3b8; font-style:italic;">- (ยังไม่ได้ตอบ - ว่าง) -</span>' : (userAnsVal === true ? 'ถูก (True)' : 'ผิด (False)');
       const correctAnsStr = q.answer === true ? 'ถูก (True)' : 'ผิด (False)';
 
       let cardClass = 'emp-q-row';
@@ -1536,7 +1539,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (!hasAnswered) {
         cardClass += ' pending';
-        badgeHtml = `<span class="emp-ans-badge" style="background:#f1f5f9; color:#64748b; border:1px solid #cbd5e1;"><i class="fa-solid fa-clock"></i> ยังไม่ได้ตอบ</span>`;
+        badgeHtml = `<span class="emp-ans-badge" style="background:#f8fafc; color:#64748b; border:1.5px dashed #cbd5e1;"><i class="fa-regular fa-circle"></i> ยังไม่ได้ตอบ (ว่าง)</span>`;
       } else if (isCorrect) {
         cardClass += ' pass';
         badgeHtml = `<span class="emp-ans-badge correct"><i class="fa-solid fa-circle-check"></i> ตอบถูก (+1 คะแนน)</span>`;
@@ -1762,11 +1765,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
       for (let q = 1; q <= 25; q++) {
         const item = ansMap[q];
-        if (!item || row.status === 'PENDING') {
-          csv += `,"-"`;
+        const hasAns = item && item.ans !== undefined && item.ans !== null;
+        if (!hasAns || row.status === 'PENDING') {
+          csv += `,""`; // ค่าว่าง (Blank)
         } else {
           const isRight = (item.isCorrect === true || item.score === 1);
-          const uAns = item.ans === true ? 'ถูก' : (item.ans === false ? 'ผิด' : '-');
+          const uAns = item.ans === true ? 'ถูก' : (item.ans === false ? 'ผิด' : '');
           if (isRight) {
             csv += `,"✓ ถูก (${uAns})"`;
           } else {
