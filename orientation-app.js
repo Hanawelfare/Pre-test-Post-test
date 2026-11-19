@@ -7,7 +7,7 @@
 const DEFAULT_GS_URL = "https://script.google.com/macros/s/AKfycbwvYgRcvzKO7pdGhcGXgrUFF3XW2ENMhhulJlrWJuCHu_pyrVTKMzEWOme_fmVc5L5L/exec";
 
 // 📌 รหัสผ่านผู้ดูแลระบบ (Admin Password)
-const ADMIN_PASSWORD = "089151";
+const ADMIN_PASSWORD = "pa2026";
 
 document.addEventListener('DOMContentLoaded', () => {
   // Navigation & Admin Controls
@@ -778,15 +778,34 @@ document.addEventListener('DOMContentLoaded', () => {
     const answeredCount = orientationQuizEngine.getAnsweredCount();
     const scoreResult = orientationQuizEngine.calculateScore();
 
-    // จัดเรียงคำตอบรายข้อ 1..25 พร้อมสถานะถูก/ผิด
-    const sortedDetails = [...scoreResult.details].sort((a, b) => a.questionId - b.questionId);
-    const answersArray = sortedDetails.map(d => ({
+    // 🌟 1. จัดเรียงคำตอบตามหน้าจอของผู้สอบ (Screen Order 1..25) เพื่อแสดงผลแดชบอร์ดให้ตรงกับที่ทำจริง
+    const screenAnswers = scoreResult.details.map((d, idx) => ({
+      screenQ: idx + 1,
+      screenNumber: idx + 1,
       q: d.questionId,
+      questionId: d.questionId,
+      questionText: d.questionText || '',
       ans: d.userAnswer,
       correct: d.correctAnswer,
       score: d.itemScore,
       isCorrect: d.isCorrect,
-      status: d.status
+      status: d.status,
+      explanation: d.explanation || ''
+    }));
+
+    // 🌟 2. จัดเรียงคำตอบตามรหัสโจทย์หลักสูตร (Canonical Order 1..25) สำหรับการวิเคราะห์ Item Analysis
+    const sortedDetails = [...scoreResult.details].sort((a, b) => a.questionId - b.questionId);
+    const canonicalAnswers = sortedDetails.map(d => ({
+      q: d.questionId,
+      questionId: d.questionId,
+      screenQ: d.screenNumber,
+      questionText: d.questionText || '',
+      ans: d.userAnswer,
+      correct: d.correctAnswer,
+      score: d.itemScore,
+      isCorrect: d.isCorrect,
+      status: d.status,
+      explanation: d.explanation || ''
     }));
 
     const answersMap = {};
@@ -809,7 +828,9 @@ document.addEventListener('DOMContentLoaded', () => {
       isPassed: scoreResult.isPassed,
       isSubmitted: false,
       timestamp: new Date().toLocaleTimeString('th-TH'),
-      answers: answersArray,
+      screenAnswers: screenAnswers,
+      canonicalAnswers: canonicalAnswers,
+      answers: screenAnswers, // ให้ answers ใน Live Data เป็น Screen Order เพื่อให้ตาราง Socrative แสดงเรียง 1..25
       answersMap: answersMap
     };
 
@@ -892,10 +913,27 @@ document.addEventListener('DOMContentLoaded', () => {
   async function processExamSubmission() {
     const scoreResult = orientationQuizEngine.calculateScore();
 
-    // จัดเรียงคำตอบข้อ 1 ถึง 25 ตามลำดับ Canonical ID สำหรับส่งออกแนว Socrative
+    // 🌟 1. ลำดับข้อสอบตามหน้าจอ (Screen Order 1..25)
+    const screenAnswers = scoreResult.details.map((d, idx) => ({
+      screenQ: idx + 1,
+      screenNumber: idx + 1,
+      q: d.questionId,
+      questionId: d.questionId,
+      questionText: d.questionText || '',
+      ans: d.userAnswer,
+      correct: d.correctAnswer,
+      score: d.itemScore,
+      isCorrect: (d.userAnswer === d.correctAnswer),
+      explanation: d.explanation || ''
+    }));
+
+    // 🌟 2. จัดเรียงคำตอบข้อ 1 ถึง 25 ตามลำดับ Canonical ID สำหรับส่งออกชีตทางการแนว Socrative
     const sortedDetails = [...scoreResult.details].sort((a, b) => a.questionId - b.questionId);
     const answersPayload = sortedDetails.map(d => ({
       q: d.questionId,
+      questionId: d.questionId,
+      screenQ: d.screenNumber,
+      questionText: d.questionText || '',
       ans: d.userAnswer,
       correct: d.correctAnswer,
       score: d.itemScore,
@@ -915,7 +953,9 @@ document.addEventListener('DOMContentLoaded', () => {
       percentage: scoreResult.percentage,
       isPassed: scoreResult.isPassed,
       attemptNumber: scoreResult.attemptNumber,
-      answers: answersPayload
+      screenAnswers: screenAnswers,
+      canonicalAnswers: answersPayload,
+      answers: screenAnswers // ค่าเริ่มต้นให้ answers เป็น screen order
     };
     orientationQuizEngine.recordSubmission(submissionRecord);
     clearLiveSessionLocally(orientationQuizEngine.currentUser.empId);
@@ -923,8 +963,8 @@ document.addEventListener('DOMContentLoaded', () => {
     renderResultsScreen(scoreResult);
     switchScreen(screenResult);
 
-    // Send payload to Google Sheets
-    await sendResultToGoogleSheets(scoreResult, answersPayload);
+    // Send payload to Google Sheets (ทั้ง Canonical และ Screen Order)
+    await sendResultToGoogleSheets(scoreResult, answersPayload, screenAnswers);
   }
 
   // Result Screen Renderer (Strict: Employee ONLY sees Total Score and %)
@@ -956,7 +996,7 @@ document.addEventListener('DOMContentLoaded', () => {
     resAttemptInfo.innerHTML = `รอบที่ทำสอบ: <strong>ครั้งที่ ${result.attemptNumber}</strong> | รหัสพนักงาน: <strong>${orientationQuizEngine.currentUser.empId}</strong>`;
   }
 
-  async function sendResultToGoogleSheets(result, answersPayload) {
+  async function sendResultToGoogleSheets(result, answersPayload, screenAnswers) {
     if (!googleScriptUrl) {
       syncStatusBox.className = 'sync-status-bar';
       syncIcon.className = 'fa-solid fa-circle-info';
@@ -978,7 +1018,9 @@ document.addEventListener('DOMContentLoaded', () => {
       maxScore: result.maxScore,
       isPassed: result.isPassed,
       attemptNumber: result.attemptNumber,
-      answers: answersPayload || result.details.map(d => ({ q: d.questionId, ans: d.userAnswer, score: d.itemScore, isCorrect: d.userAnswer === d.correctAnswer }))
+      answers: answersPayload || result.details.map(d => ({ q: d.questionId, ans: d.userAnswer, score: d.itemScore, isCorrect: d.userAnswer === d.correctAnswer })),
+      canonicalAnswers: answersPayload || result.details.map(d => ({ q: d.questionId, ans: d.userAnswer, score: d.itemScore, isCorrect: d.userAnswer === d.correctAnswer })),
+      screenAnswers: screenAnswers || result.details.map((d, idx) => ({ screenQ: idx + 1, q: d.questionId, ans: d.userAnswer, isCorrect: d.isCorrect, score: d.itemScore }))
     };
 
     try {
@@ -1065,13 +1107,41 @@ document.addEventListener('DOMContentLoaded', () => {
           const mScore = orientationQuizEngine.calculateScore();
           const mAnsCount = orientationQuizEngine.getAnsweredCount();
           if (mAnsCount > 0) {
+            const mScreenAns = mScore.details.map((d, idx) => ({
+              screenQ: idx + 1,
+              screenNumber: idx + 1,
+              q: d.questionId,
+              questionId: d.questionId,
+              questionText: d.questionText || '',
+              ans: d.userAnswer,
+              correct: d.correctAnswer,
+              score: d.itemScore,
+              isCorrect: d.isCorrect,
+              status: d.status,
+              explanation: d.explanation || ''
+            }));
+            const mCanonAns = [...mScore.details].sort((a, b) => a.questionId - b.questionId).map(d => ({
+              q: d.questionId,
+              questionId: d.questionId,
+              screenQ: d.screenNumber,
+              questionText: d.questionText || '',
+              ans: d.userAnswer,
+              correct: d.correctAnswer,
+              score: d.itemScore,
+              isCorrect: d.isCorrect,
+              status: d.status,
+              explanation: d.explanation || ''
+            }));
+
             memLive = {
               currentScore: mScore.totalScore,
               maxScore: mScore.maxScore,
               answeredCount: mAnsCount,
               attemptNumber: orientationQuizEngine.currentUser.attemptNumber || (subs.length + 1),
               isSubmitted: false,
-              answers: mScore.details.map(d => ({ q: d.questionId, ans: d.userAnswer, isCorrect: d.isCorrect, score: d.itemScore }))
+              screenAnswers: mScreenAns,
+              canonicalAnswers: mCanonAns,
+              answers: mScreenAns
             };
           }
         }
@@ -1087,6 +1157,8 @@ document.addEventListener('DOMContentLoaded', () => {
       let latestPercent = null;
       let latestAttempt = 0;
       let latestTimestamp = '-';
+      let latestScreenAnswers = [];
+      let latestCanonicalAnswers = [];
       let latestAnswers = [];
       let answeredCount = 0;
 
@@ -1099,25 +1171,24 @@ document.addEventListener('DOMContentLoaded', () => {
         answeredCount = liveRec.answeredCount || 0;
         latestTimestamp = `กำลังทำข้อสอบสด (${answeredCount}/25)`;
 
-        let liveAnswersArr = [];
-        if (Array.isArray(liveRec.answers)) {
-          liveAnswersArr = liveRec.answers;
-        } else if (typeof liveRec.answers === 'object' && liveRec.answers !== null) {
-          for (let qNum = 1; qNum <= 25; qNum++) {
-            const val = liveRec.answers[qNum] !== undefined ? liveRec.answers[qNum] : liveRec.answers[String(qNum)];
-            if (val !== undefined && val !== null) {
-              const qObj = orientationQuizEngine.questions.find(q => q.id === qNum);
-              const isRight = qObj ? (qObj.answer === val) : false;
-              liveAnswersArr.push({
-                q: qNum,
-                ans: val,
-                isCorrect: isRight,
-                score: isRight ? 1 : 0
-              });
-            }
-          }
+        let liveScreenAnswers = [];
+        let liveCanonicalAnswers = [];
+
+        if (Array.isArray(liveRec.screenAnswers) && liveRec.screenAnswers.length > 0) {
+          liveScreenAnswers = liveRec.screenAnswers;
+        } else if (Array.isArray(liveRec.answers)) {
+          liveScreenAnswers = liveRec.answers;
         }
-        latestAnswers = liveAnswersArr;
+
+        if (Array.isArray(liveRec.canonicalAnswers) && liveRec.canonicalAnswers.length > 0) {
+          liveCanonicalAnswers = liveRec.canonicalAnswers;
+        } else if (Array.isArray(liveScreenAnswers) && liveScreenAnswers.length > 0) {
+          liveCanonicalAnswers = [...liveScreenAnswers].filter(a => a && (a.q || a.questionId)).sort((a, b) => (a.q || a.questionId) - (b.q || b.questionId));
+        }
+
+        latestScreenAnswers = liveScreenAnswers;
+        latestCanonicalAnswers = liveCanonicalAnswers;
+        latestAnswers = liveScreenAnswers;
       } else if (hasTaken) {
         const latestSub = subs[0];
         latestScore = latestSub.score;
@@ -1125,8 +1196,15 @@ document.addEventListener('DOMContentLoaded', () => {
         latestPercent = Math.round((latestScore / latestMaxScore) * 100);
         latestAttempt = subs.length;
         latestTimestamp = latestSub.timestamp || '-';
-        latestAnswers = latestSub.answers || [];
         answeredCount = 25;
+
+        latestScreenAnswers = Array.isArray(latestSub.screenAnswers) && latestSub.screenAnswers.length > 0 
+          ? latestSub.screenAnswers 
+          : (Array.isArray(latestSub.answers) ? latestSub.answers : []);
+        latestCanonicalAnswers = Array.isArray(latestSub.canonicalAnswers) && latestSub.canonicalAnswers.length > 0 
+          ? latestSub.canonicalAnswers 
+          : (Array.isArray(latestSub.answers) ? latestSub.answers : []);
+        latestAnswers = latestScreenAnswers.length > 0 ? latestScreenAnswers : latestSub.answers;
 
         if (latestScore >= 20) {
           status = 'PASS';
@@ -1146,7 +1224,9 @@ document.addEventListener('DOMContentLoaded', () => {
         attemptCount: latestAttempt,
         answeredCount: answeredCount,
         latestTimestamp: latestTimestamp,
-        answers: latestAnswers
+        screenAnswers: latestScreenAnswers,
+        canonicalAnswers: latestCanonicalAnswers,
+        answers: latestScreenAnswers.length > 0 ? latestScreenAnswers : latestAnswers
       });
     });
 
@@ -1190,7 +1270,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /**
-   * 📊 Socrative Item Analysis (% ถูกรายข้อ 1 - 25)
+   * 📊 Socrative Item Analysis (% ถูกรายข้อ 1 - 25 ตามโจทย์หลักสูตร Canonical ID)
    */
   function renderSocrativeItemAnalysis(evaluatedList) {
     if (!socrativeAnalysisGrid) return;
@@ -1202,11 +1282,23 @@ document.addEventListener('DOMContentLoaded', () => {
     for (let qId = 1; qId <= 25; qId++) {
       let correct = 0;
       let wrong = 0;
+      let answeredCount = 0;
 
       if (takersCount > 0) {
         testTakers.forEach(t => {
-          const ansObj = (t.answers || []).find(a => (a.q === qId || a.questionId === qId));
-          if (ansObj) {
+          let ansObj = null;
+          if (Array.isArray(t.canonicalAnswers) && t.canonicalAnswers.length > 0) {
+            ansObj = t.canonicalAnswers.find(a => (a.q === qId || a.questionId === qId));
+          }
+          if (!ansObj && Array.isArray(t.answers)) {
+            ansObj = t.answers.find(a => (a.q === qId || a.questionId === qId));
+          }
+          if (!ansObj && Array.isArray(t.screenAnswers)) {
+            ansObj = t.screenAnswers.find(a => (a.q === qId || a.questionId === qId));
+          }
+
+          if (ansObj && ansObj.ans !== undefined && ansObj.ans !== null) {
+            answeredCount++;
             if (ansObj.isCorrect === true || ansObj.score === 1) {
               correct++;
             } else {
@@ -1216,12 +1308,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       }
 
-      const pct = takersCount > 0 ? Math.round((correct / takersCount) * 100) : 0;
+      const pct = answeredCount > 0 ? Math.round((correct / answeredCount) * 100) : 0;
       let chipClass = 'chip-na';
-      if (takersCount > 0) {
+      if (answeredCount > 0) {
         if (pct >= 80) chipClass = 'chip-high';
         else if (pct >= 50) chipClass = 'chip-med';
-        else chipClass = 'chip-low';
+        else chipClass = 'chip-low'; // สีแดงเด่นชัดเมื่อ % ถูกต่ำกว่า 50%
       }
 
       const qData = orientationQuizEngine.questions.find(q => q.id === qId);
@@ -1230,18 +1322,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const chip = document.createElement('div');
       chip.className = `socrative-chip ${chipClass}`;
-      chip.title = `ข้อ ${qId}: ${qText}\nเฉลย: ${qKey}\nตอบถูก: ${correct}/${takersCount} คน (${pct}%)`;
+      chip.title = `ข้อ ${qId}: ${qText}\nเฉลย: ${qKey}\nตอบถูก: ${correct}/${answeredCount} คน (${answeredCount > 0 ? pct + '%' : 'ยังไม่มีคนตอบ'})\nคลิกเพื่อดูรายละเอียด`;
       chip.innerHTML = `
         <span class="chip-q-num">ข้อ ${qId}</span>
-        <span class="chip-pct">${takersCount > 0 ? pct + '%' : '-'}</span>
+        <span class="chip-pct">${answeredCount > 0 ? pct + '%' : '-'}</span>
       `;
       chip.addEventListener('click', () => {
         alert(
-          `📊 สถิติรายข้อแนว Socrative - ข้อที่ ${qId}\n\n` +
-          `โจทย์: ${qText}\n\n` +
-          `เฉลย: ${qKey}\n` +
+          `📊 สถิติวิเคราะห์รายข้อตามหลักสูตร - ข้อที่ ${qId}\n\n` +
+          `โจทย์ข้อสอบ: ${qText}\n\n` +
+          `เฉลยที่ถูกต้อง: ${qKey}\n` +
           `-----------------------------------\n` +
-          `ผู้เข้าสอบทั้งหมด: ${takersCount} คน\n` +
+          `จำนวนคนที่ตอบข้อนี้แล้ว: ${answeredCount} คน (จากผู้เข้าสอบ ${takersCount} คน)\n` +
           `ตอบถูกต้อง: ${correct} คน (${pct}%)\n` +
           `ตอบผิด: ${wrong} คน (${100 - pct}%)\n\n` +
           (qData && qData.explanation ? `คำอธิบายเฉลย: ${qData.explanation}` : '')
@@ -1405,27 +1497,28 @@ document.addEventListener('DOMContentLoaded', () => {
           <td>${statusBadge}</td>
         `;
 
-        // สร้างช่องสัญลักษณ์ Socrative สำหรับข้อ 1 - 25
-        const answerMap = {};
-        (row.answers || []).forEach(a => {
-          const qId = a.q !== undefined ? a.q : a.questionId;
-          if (qId) answerMap[qId] = a;
-        });
-
+        // สร้างช่องสัญลักษณ์ Socrative สำหรับข้อ 1 - 25 ตามลำดับหน้าจอ (Screen Order 1-25)
         for (let q = 1; q <= 25; q++) {
-          const item = answerMap[q];
+          let item = null;
+          if (Array.isArray(row.screenAnswers) && row.screenAnswers.length >= q) {
+            item = row.screenAnswers[q - 1];
+          } else if (Array.isArray(row.answers)) {
+            item = row.answers.find(a => (a.screenQ === q || a.screenNumber === q)) || row.answers[q - 1];
+          }
+
           const hasAnswered = item && item.ans !== undefined && item.ans !== null;
 
           if (!hasAnswered || row.status === 'PENDING') {
-            // ข้อที่ยังไม่ได้ตอบ ให้แสดงเป็นค่าว่าง (Blank) ไม่ใส่เครื่องหมายใดๆ
-            rowHtml += `<td style="text-align:center;"><span class="socrative-cell blank" title="ข้อ ${q}: ยังไม่ได้ตอบ">&nbsp;</span></td>`;
+            // ข้อที่ยังไม่ได้ตอบ ให้แสดงเป็นค่าว่าง (Blank) สะอาดตา ไม่ใส่เครื่องหมายใดๆ
+            rowHtml += `<td style="text-align:center;"><span class="socrative-cell blank" title="ข้อที่ ${q} บนหน้าจอ: ยังไม่ได้ตอบ">&nbsp;</span></td>`;
           } else {
             const isRight = (item.isCorrect === true || item.score === 1);
             const uAnsStr = item.ans === true ? 'ถูก' : (item.ans === false ? 'ผิด' : '');
+            const qTitle = item.questionText ? ` (${item.questionText.slice(0, 30)}...)` : (item.q ? ` (โจทย์ ID: ${item.q})` : '');
             if (isRight) {
-              rowHtml += `<td style="text-align:center;"><span class="socrative-cell pass" title="ข้อ ${q}: ถูก (พนักงานตอบ: ${uAnsStr})">✓</span></td>`;
+              rowHtml += `<td style="text-align:center;"><span class="socrative-cell pass" title="ข้อที่ ${q} บนหน้าจอ: ถูก${qTitle} (ตอบ: ${uAnsStr})">✓</span></td>`;
             } else {
-              rowHtml += `<td style="text-align:center;"><span class="socrative-cell fail" title="ข้อ ${q}: ผิด (พนักงานตอบ: ${uAnsStr})">✗</span></td>`;
+              rowHtml += `<td style="text-align:center;"><span class="socrative-cell fail" title="ข้อที่ ${q} บนหน้าจอ: ผิด${qTitle} (ตอบ: ${uAnsStr})">✗</span></td>`;
             }
           }
         }
@@ -1445,7 +1538,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dashTableBody.appendChild(tr);
       });
 
-      // 3. แถวสรุปท้ายตารางแนว Socrative (Class Accuracy %)
+      // 3. แถวสรุปท้ายตารางแนว Socrative (Screen Order Accuracy %)
       if (dashTableFoot) {
         const testTakers = filteredList.filter(e => e.status !== 'PENDING');
         const takersCount = testTakers.length;
@@ -1453,28 +1546,37 @@ document.addEventListener('DOMContentLoaded', () => {
         let footHtml = `
           <tr class="socrative-summary-row">
             <td colspan="7" style="text-align:right; font-weight:700; color:#0369a1;">
-              <i class="fa-solid fa-chart-column"></i> % ตอบถูกรายข้อ (Accuracy):
+              <i class="fa-solid fa-chart-column"></i> % ตอบถูกตามลำดับข้อ (Screen Order):
             </td>
         `;
 
         for (let q = 1; q <= 25; q++) {
           let correct = 0;
+          let answeredInSlot = 0;
           if (takersCount > 0) {
             testTakers.forEach(t => {
-              const ansObj = (t.answers || []).find(a => (a.q === q || a.questionId === q));
-              if (ansObj && (ansObj.isCorrect === true || ansObj.score === 1)) {
-                correct++;
+              let item = null;
+              if (Array.isArray(t.screenAnswers) && t.screenAnswers.length >= q) {
+                item = t.screenAnswers[q - 1];
+              } else if (Array.isArray(t.answers)) {
+                item = t.answers.find(a => (a.screenQ === q || a.screenNumber === q)) || t.answers[q - 1];
+              }
+              if (item && item.ans !== undefined && item.ans !== null) {
+                answeredInSlot++;
+                if (item.isCorrect === true || item.score === 1) {
+                  correct++;
+                }
               }
             });
           }
-          const pct = takersCount > 0 ? Math.round((correct / takersCount) * 100) : 0;
+          const pct = answeredInSlot > 0 ? Math.round((correct / answeredInSlot) * 100) : 0;
           let colorStyle = '#94a3b8';
-          if (takersCount > 0) {
+          if (answeredInSlot > 0) {
             if (pct >= 80) colorStyle = '#059669';
             else if (pct >= 50) colorStyle = '#d97706';
             else colorStyle = '#dc2626';
           }
-          footHtml += `<td style="text-align:center; font-weight:800; color:${colorStyle};">${takersCount > 0 ? pct + '%' : '-'}</td>`;
+          footHtml += `<td style="text-align:center; font-weight:800; color:${colorStyle};" title="ข้อที่ ${q} บนหน้าจอ: ตอบถูก ${correct}/${answeredInSlot} คน">${answeredInSlot > 0 ? pct + '%' : '-'}</td>`;
         }
 
         footHtml += `<td></td></tr>`;
@@ -1516,60 +1618,121 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
     `;
 
-    // Map answers by question ID
-    const answerMap = {};
-    (person.answers || []).forEach(a => {
-      const qId = a.q !== undefined ? a.q : a.questionId;
-      if (qId) answerMap[qId] = a;
-    });
-
+    // ดึงรายการคำตอบ (ถ้ามี Screen Order ให้ใช้ Screen Order แสดงผล)
     modalEmpDetailList.innerHTML = '';
-    orientationQuizEngine.questions.forEach((q, idx) => {
-      const qId = q.id;
-      const userAnsObj = answerMap[qId];
-      const hasAnswered = userAnsObj !== undefined && userAnsObj.ans !== undefined && userAnsObj.ans !== null;
-      const userAnsVal = hasAnswered ? userAnsObj.ans : undefined;
-      const isCorrect = hasAnswered ? (userAnsObj.isCorrect === true || userAnsObj.score === 1) : false;
+    const screenList = (Array.isArray(person.screenAnswers) && person.screenAnswers.length > 0)
+      ? person.screenAnswers
+      : (Array.isArray(person.answers) && person.answers.length > 0 && person.answers[0].screenQ !== undefined)
+        ? person.answers
+        : null;
 
-      const userAnsStr = !hasAnswered ? '<span style="color:#94a3b8; font-style:italic;">- (ยังไม่ได้ตอบ - ว่าง) -</span>' : (userAnsVal === true ? 'ถูก (True)' : 'ผิด (False)');
-      const correctAnsStr = q.answer === true ? 'ถูก (True)' : 'ผิด (False)';
+    if (screenList && screenList.length > 0) {
+      screenList.forEach((item, idx) => {
+        const screenNum = item.screenNumber || item.screenQ || (idx + 1);
+        const qId = item.q || item.questionId || (idx + 1);
+        const qData = orientationQuizEngine.questions.find(q => q.id === qId);
+        const qText = item.questionText || (qData ? qData.question : `ข้อที่ ${qId}`);
+        const qExp = item.explanation || (qData ? qData.explanation : '');
+        const qCorrectBool = item.correct !== undefined ? item.correct : (qData ? qData.answer : null);
 
-      let cardClass = 'emp-q-row';
-      let badgeHtml = '';
+        const hasAnswered = item.ans !== undefined && item.ans !== null;
+        const userAnsVal = item.ans;
+        const isCorrect = hasAnswered ? (item.isCorrect === true || item.score === 1) : false;
 
-      if (!hasAnswered) {
-        cardClass += ' pending';
-        badgeHtml = `<span class="emp-ans-badge" style="background:#f8fafc; color:#64748b; border:1.5px dashed #cbd5e1;"><i class="fa-regular fa-circle"></i> ยังไม่ได้ตอบ (ว่าง)</span>`;
-      } else if (isCorrect) {
-        cardClass += ' pass';
-        badgeHtml = `<span class="emp-ans-badge correct"><i class="fa-solid fa-circle-check"></i> ตอบถูก (+1 คะแนน)</span>`;
-      } else {
-        cardClass += ' fail';
-        badgeHtml = `<span class="emp-ans-badge wrong"><i class="fa-solid fa-circle-xmark"></i> ตอบผิด (0 คะแนน)</span>`;
-      }
+        const userAnsStr = !hasAnswered ? '<span style="color:#94a3b8; font-style:italic;">- (ยังไม่ได้ตอบ - ว่าง) -</span>' : (userAnsVal === true ? 'ถูก (True)' : 'ผิด (False)');
+        const correctAnsStr = qCorrectBool === true ? 'ถูก (True)' : (qCorrectBool === false ? 'ผิด (False)' : '-');
 
-      const card = document.createElement('div');
-      card.className = cardClass;
-      card.innerHTML = `
-        <div class="emp-q-header">
-          <span style="color:#0369a1; font-weight:700;">ข้อที่ ${idx + 1} (ข้อสอบ ID: ${qId})</span>
-          ${badgeHtml}
-        </div>
-        <div class="emp-q-text">${escapeHtml(q.question)}</div>
-        <div class="emp-q-footer">
-          <div>
-            <strong>คำตอบของพนักงาน:</strong> 
-            <span style="font-weight:700; color:${!hasAnswered ? '#64748b' : (isCorrect ? '#059669' : '#dc2626')};">${userAnsStr}</span>
+        let cardClass = 'emp-q-row';
+        let badgeHtml = '';
+
+        if (!hasAnswered) {
+          cardClass += ' pending';
+          badgeHtml = `<span class="emp-ans-badge" style="background:#f8fafc; color:#64748b; border:1.5px dashed #cbd5e1;"><i class="fa-regular fa-circle"></i> ยังไม่ได้ตอบ (ว่าง)</span>`;
+        } else if (isCorrect) {
+          cardClass += ' pass';
+          badgeHtml = `<span class="emp-ans-badge correct"><i class="fa-solid fa-circle-check"></i> ตอบถูก (+1 คะแนน)</span>`;
+        } else {
+          cardClass += ' fail';
+          badgeHtml = `<span class="emp-ans-badge wrong"><i class="fa-solid fa-circle-xmark"></i> ตอบผิด (0 คะแนน)</span>`;
+        }
+
+        const card = document.createElement('div');
+        card.className = cardClass;
+        card.innerHTML = `
+          <div class="emp-q-header">
+            <span style="color:#0369a1; font-weight:700;"><i class="fa-solid fa-desktop"></i> ข้อที่ ${screenNum} บนหน้าจอ <small style="color:#64748b; font-weight:normal;">(รหัสโจทย์หลักสูตร: #${qId})</small></span>
+            ${badgeHtml}
           </div>
-          <div>
-            <strong>เฉลยที่ถูกต้อง:</strong> 
-            <span style="font-weight:700; color:#0369a1;">${correctAnsStr}</span>
+          <div class="emp-q-text">${escapeHtml(qText)}</div>
+          <div class="emp-q-footer">
+            <div>
+              <strong>คำตอบของพนักงาน:</strong> 
+              <span style="font-weight:700; color:${!hasAnswered ? '#64748b' : (isCorrect ? '#059669' : '#dc2626')};">${userAnsStr}</span>
+            </div>
+            <div>
+              <strong>เฉลยที่ถูกต้อง:</strong> 
+              <span style="font-weight:700; color:#0369a1;">${correctAnsStr}</span>
+            </div>
           </div>
-        </div>
-        ${q.explanation ? `<div style="font-size:0.85rem; color:#64748b; background:#f8fafc; padding:0.4rem 0.75rem; border-radius:4px; border:1px solid #e2e8f0; margin-top:0.35rem;"><i class="fa-solid fa-lightbulb text-warning"></i> <strong>คำอธิบาย:</strong> ${escapeHtml(q.explanation)}</div>` : ''}
-      `;
-      modalEmpDetailList.appendChild(card);
-    });
+          ${qExp ? `<div style="font-size:0.85rem; color:#64748b; background:#f8fafc; padding:0.4rem 0.75rem; border-radius:4px; border:1px solid #e2e8f0; margin-top:0.35rem;"><i class="fa-solid fa-lightbulb text-warning"></i> <strong>คำอธิบาย:</strong> ${escapeHtml(qExp)}</div>` : ''}
+        `;
+        modalEmpDetailList.appendChild(card);
+      });
+    } else {
+      // Map answers by question ID
+      const answerMap = {};
+      (person.canonicalAnswers || person.answers || []).forEach(a => {
+        const qId = a.q !== undefined ? a.q : a.questionId;
+        if (qId) answerMap[qId] = a;
+      });
+
+      orientationQuizEngine.questions.forEach((q, idx) => {
+        const qId = q.id;
+        const userAnsObj = answerMap[qId];
+        const hasAnswered = userAnsObj !== undefined && userAnsObj.ans !== undefined && userAnsObj.ans !== null;
+        const userAnsVal = hasAnswered ? userAnsObj.ans : undefined;
+        const isCorrect = hasAnswered ? (userAnsObj.isCorrect === true || userAnsObj.score === 1) : false;
+
+        const userAnsStr = !hasAnswered ? '<span style="color:#94a3b8; font-style:italic;">- (ยังไม่ได้ตอบ - ว่าง) -</span>' : (userAnsVal === true ? 'ถูก (True)' : 'ผิด (False)');
+        const correctAnsStr = q.answer === true ? 'ถูก (True)' : 'ผิด (False)';
+
+        let cardClass = 'emp-q-row';
+        let badgeHtml = '';
+
+        if (!hasAnswered) {
+          cardClass += ' pending';
+          badgeHtml = `<span class="emp-ans-badge" style="background:#f8fafc; color:#64748b; border:1.5px dashed #cbd5e1;"><i class="fa-regular fa-circle"></i> ยังไม่ได้ตอบ (ว่าง)</span>`;
+        } else if (isCorrect) {
+          cardClass += ' pass';
+          badgeHtml = `<span class="emp-ans-badge correct"><i class="fa-solid fa-circle-check"></i> ตอบถูก (+1 คะแนน)</span>`;
+        } else {
+          cardClass += ' fail';
+          badgeHtml = `<span class="emp-ans-badge wrong"><i class="fa-solid fa-circle-xmark"></i> ตอบผิด (0 คะแนน)</span>`;
+        }
+
+        const card = document.createElement('div');
+        card.className = cardClass;
+        card.innerHTML = `
+          <div class="emp-q-header">
+            <span style="color:#0369a1; font-weight:700;">ข้อที่ ${idx + 1} (ข้อสอบ ID: ${qId})</span>
+            ${badgeHtml}
+          </div>
+          <div class="emp-q-text">${escapeHtml(q.question)}</div>
+          <div class="emp-q-footer">
+            <div>
+              <strong>คำตอบของพนักงาน:</strong> 
+              <span style="font-weight:700; color:${!hasAnswered ? '#64748b' : (isCorrect ? '#059669' : '#dc2626')};">${userAnsStr}</span>
+            </div>
+            <div>
+              <strong>เฉลยที่ถูกต้อง:</strong> 
+              <span style="font-weight:700; color:#0369a1;">${correctAnsStr}</span>
+            </div>
+          </div>
+          ${q.explanation ? `<div style="font-size:0.85rem; color:#64748b; background:#f8fafc; padding:0.4rem 0.75rem; border-radius:4px; border:1px solid #e2e8f0; margin-top:0.35rem;"><i class="fa-solid fa-lightbulb text-warning"></i> <strong>คำอธิบาย:</strong> ${escapeHtml(q.explanation)}</div>` : ''}
+        `;
+        modalEmpDetailList.appendChild(card);
+      });
+    }
 
     modalEmployeeDetail.classList.remove('hidden');
   }
@@ -1627,13 +1790,41 @@ document.addEventListener('DOMContentLoaded', () => {
           const mScore = orientationQuizEngine.calculateScore();
           const mAnsCount = orientationQuizEngine.getAnsweredCount();
           if (mAnsCount > 0) {
+            const mScreenAns = mScore.details.map((d, idx) => ({
+              screenQ: idx + 1,
+              screenNumber: idx + 1,
+              q: d.questionId,
+              questionId: d.questionId,
+              questionText: d.questionText || '',
+              ans: d.userAnswer,
+              correct: d.correctAnswer,
+              score: d.itemScore,
+              isCorrect: d.isCorrect,
+              status: d.status,
+              explanation: d.explanation || ''
+            }));
+            const mCanonAns = [...mScore.details].sort((a, b) => a.questionId - b.questionId).map(d => ({
+              q: d.questionId,
+              questionId: d.questionId,
+              screenQ: d.screenNumber,
+              questionText: d.questionText || '',
+              ans: d.userAnswer,
+              correct: d.correctAnswer,
+              score: d.itemScore,
+              isCorrect: d.isCorrect,
+              status: d.status,
+              explanation: d.explanation || ''
+            }));
+
             memLive = {
               currentScore: mScore.totalScore,
               maxScore: mScore.maxScore,
               answeredCount: mAnsCount,
               attemptNumber: orientationQuizEngine.currentUser.attemptNumber || (subs.length + 1),
               isSubmitted: false,
-              answers: mScore.details.map(d => ({ q: d.questionId, ans: d.userAnswer, isCorrect: d.isCorrect, score: d.itemScore }))
+              screenAnswers: mScreenAns,
+              canonicalAnswers: mCanonAns,
+              answers: mScreenAns
             };
           }
         }
@@ -1649,6 +1840,8 @@ document.addEventListener('DOMContentLoaded', () => {
       let latestPercent = null;
       let latestAttempt = 0;
       let latestTimestamp = '-';
+      let latestScreenAnswers = [];
+      let latestCanonicalAnswers = [];
       let latestAnswers = [];
 
       if (isLiveActive) {
@@ -1659,25 +1852,24 @@ document.addEventListener('DOMContentLoaded', () => {
         latestAttempt = liveRec.attemptNumber || (subs.length + 1);
         latestTimestamp = `กำลังทำข้อสอบสด (${liveRec.answeredCount || 0}/25)`;
 
-        let liveAnswersArr = [];
-        if (Array.isArray(liveRec.answers)) {
-          liveAnswersArr = liveRec.answers;
-        } else if (typeof liveRec.answers === 'object' && liveRec.answers !== null) {
-          for (let qNum = 1; qNum <= 25; qNum++) {
-            const val = liveRec.answers[qNum] !== undefined ? liveRec.answers[qNum] : liveRec.answers[String(qNum)];
-            if (val !== undefined && val !== null) {
-              const qObj = orientationQuizEngine.questions.find(q => q.id === qNum);
-              const isRight = qObj ? (qObj.answer === val) : false;
-              liveAnswersArr.push({
-                q: qNum,
-                ans: val,
-                isCorrect: isRight,
-                score: isRight ? 1 : 0
-              });
-            }
-          }
+        let liveScreenAnswers = [];
+        let liveCanonicalAnswers = [];
+
+        if (Array.isArray(liveRec.screenAnswers) && liveRec.screenAnswers.length > 0) {
+          liveScreenAnswers = liveRec.screenAnswers;
+        } else if (Array.isArray(liveRec.answers)) {
+          liveScreenAnswers = liveRec.answers;
         }
-        latestAnswers = liveAnswersArr;
+
+        if (Array.isArray(liveRec.canonicalAnswers) && liveRec.canonicalAnswers.length > 0) {
+          liveCanonicalAnswers = liveRec.canonicalAnswers;
+        } else if (Array.isArray(liveScreenAnswers) && liveScreenAnswers.length > 0) {
+          liveCanonicalAnswers = [...liveScreenAnswers].filter(a => a && (a.q || a.questionId)).sort((a, b) => (a.q || a.questionId) - (b.q || b.questionId));
+        }
+
+        latestScreenAnswers = liveScreenAnswers;
+        latestCanonicalAnswers = liveCanonicalAnswers;
+        latestAnswers = liveScreenAnswers;
       } else if (hasTaken) {
         const latestSub = subs[0];
         latestScore = latestSub.score;
@@ -1685,7 +1877,13 @@ document.addEventListener('DOMContentLoaded', () => {
         latestPercent = Math.round((latestScore / latestMaxScore) * 100);
         latestAttempt = subs.length;
         latestTimestamp = latestSub.timestamp || '-';
-        latestAnswers = latestSub.answers || [];
+        latestScreenAnswers = Array.isArray(latestSub.screenAnswers) && latestSub.screenAnswers.length > 0 
+          ? latestSub.screenAnswers 
+          : (Array.isArray(latestSub.answers) ? latestSub.answers : []);
+        latestCanonicalAnswers = Array.isArray(latestSub.canonicalAnswers) && latestSub.canonicalAnswers.length > 0 
+          ? latestSub.canonicalAnswers 
+          : (Array.isArray(latestSub.answers) ? latestSub.answers : []);
+        latestAnswers = latestScreenAnswers.length > 0 ? latestScreenAnswers : latestSub.answers;
         status = latestScore >= 20 ? 'PASS' : 'FAIL';
       }
 
@@ -1699,7 +1897,9 @@ document.addEventListener('DOMContentLoaded', () => {
         percentage: latestPercent,
         attemptCount: latestAttempt,
         latestTimestamp: latestTimestamp,
-        answers: latestAnswers
+        screenAnswers: latestScreenAnswers,
+        canonicalAnswers: latestCanonicalAnswers,
+        answers: latestScreenAnswers.length > 0 ? latestScreenAnswers : latestAnswers
       });
     });
 
@@ -1756,9 +1956,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
       csv += `"${num}","${empId}","${name}","${dept}","${status}","${score}","25","${pct}","${attempt}","${timestamp}"`;
 
-      // ใส่ผลลัพธ์รายข้อ 1 - 25
+      // ใส่ผลลัพธ์รายข้อ 1 - 25 ตามโจทย์หลักสูตร Canonical ID
       const ansMap = {};
-      (row.answers || []).forEach(a => {
+      (row.canonicalAnswers || row.answers || []).forEach(a => {
         const qId = a.q !== undefined ? a.q : a.questionId;
         if (qId) ansMap[qId] = a;
       });
@@ -1789,16 +1989,21 @@ document.addEventListener('DOMContentLoaded', () => {
     csv += `"% ความถูกต้องรายข้อ (Class Accuracy)",,,,,,,,,`;
     for (let q = 1; q <= 25; q++) {
       let correct = 0;
+      let answeredCount = 0;
       if (takersCount > 0) {
         testTakers.forEach(t => {
-          const ansObj = (t.answers || []).find(a => (a.q === q || a.questionId === q));
-          if (ansObj && (ansObj.isCorrect === true || ansObj.score === 1)) {
-            correct++;
+          const list = t.canonicalAnswers || t.answers || [];
+          const ansObj = list.find(a => (a.q === q || a.questionId === q));
+          if (ansObj && ansObj.ans !== undefined && ansObj.ans !== null) {
+            answeredCount++;
+            if (ansObj.isCorrect === true || ansObj.score === 1) {
+              correct++;
+            }
           }
         });
       }
-      const pct = takersCount > 0 ? Math.round((correct / takersCount) * 100) : 0;
-      csv += `,"${takersCount > 0 ? pct + '%' : '-'}"`;
+      const pct = answeredCount > 0 ? Math.round((correct / answeredCount) * 100) : 0;
+      csv += `,"${answeredCount > 0 ? pct + '%' : '-'}"`;
     }
     csv += "\n";
 
@@ -1806,15 +2011,20 @@ document.addEventListener('DOMContentLoaded', () => {
     csv += `"จำนวนคนตอบถูกต้อง",,,,,,,,,`;
     for (let q = 1; q <= 25; q++) {
       let correct = 0;
+      let answeredCount = 0;
       if (takersCount > 0) {
         testTakers.forEach(t => {
-          const ansObj = (t.answers || []).find(a => (a.q === q || a.questionId === q));
-          if (ansObj && (ansObj.isCorrect === true || ansObj.score === 1)) {
-            correct++;
+          const list = t.canonicalAnswers || t.answers || [];
+          const ansObj = list.find(a => (a.q === q || a.questionId === q));
+          if (ansObj && ansObj.ans !== undefined && ansObj.ans !== null) {
+            answeredCount++;
+            if (ansObj.isCorrect === true || ansObj.score === 1) {
+              correct++;
+            }
           }
         });
       }
-      csv += `,"${correct}/${takersCount}"`;
+      csv += `,"${correct}/${answeredCount} คน"`;
     }
     csv += "\n";
 
