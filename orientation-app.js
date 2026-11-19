@@ -159,7 +159,16 @@ document.addEventListener('DOMContentLoaded', () => {
           fetchDataFromGoogleSheet(true);
         }
       }
-    }, 5000);
+    }, 4000);
+
+    // รับสัญญาณ Storage Event แบบสดทันทีข้ามแท็บ (0ms เมื่อทำข้อสอบในแท็บอื่นบนเครื่องเดียวกัน)
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'orientation_live_ping' || (e.key && e.key.startsWith('orientation_live_'))) {
+        if (isAdminLoggedIn && !screenDashboard.classList.contains('hidden')) {
+          renderDashboard();
+        }
+      }
+    });
   }
 
   function bindEvents() {
@@ -728,16 +737,39 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // REAL-TIME LIVE PROGRESS BACKGROUND SYNC
+  // REAL-TIME LIVE PROGRESS HYBRID SYNC (Local 0ms + Cloud Google Sheets)
   // ==========================================
-  let liveSyncTimeout = null;
-  function triggerLiveProgressSync() {
-    clearTimeout(liveSyncTimeout);
-    liveSyncTimeout = setTimeout(sendLiveProgressSync, 400);
+  function saveLiveSessionLocally(empId, sessionData) {
+    if (!empId) return;
+    const cleanId = orientationQuizEngine.cleanEmpId(empId);
+    try {
+      localStorage.setItem('orientation_live_' + cleanId, JSON.stringify(sessionData));
+      localStorage.setItem('orientation_live_ping', Date.now().toString());
+    } catch(e) {}
   }
 
-  async function sendLiveProgressSync() {
-    if (!googleScriptUrl || !orientationQuizEngine.currentUser || !orientationQuizEngine.currentUser.empId) return;
+  function getLiveSessionLocally(empId) {
+    if (!empId) return null;
+    const cleanId = orientationQuizEngine.cleanEmpId(empId);
+    try {
+      const saved = localStorage.getItem('orientation_live_' + cleanId);
+      if (saved) return JSON.parse(saved);
+    } catch(e) {}
+    return null;
+  }
+
+  function clearLiveSessionLocally(empId) {
+    if (!empId) return;
+    const cleanId = orientationQuizEngine.cleanEmpId(empId);
+    try {
+      localStorage.removeItem('orientation_live_' + cleanId);
+      localStorage.setItem('orientation_live_ping', Date.now().toString());
+    } catch(e) {}
+  }
+
+  let liveSyncTimeout = null;
+  function triggerLiveProgressSync() {
+    if (!orientationQuizEngine.currentUser || !orientationQuizEngine.currentUser.empId) return;
 
     const empId = orientationQuizEngine.currentUser.empId;
     const fullName = orientationQuizEngine.currentUser.fullName || '';
@@ -746,17 +778,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const answeredCount = orientationQuizEngine.getAnsweredCount();
     const scoreResult = orientationQuizEngine.calculateScore();
 
-    // Map answers by original question ID 1..25
+    // จัดเรียงคำตอบรายข้อ 1..25 พร้อมสถานะถูก/ผิด
+    const sortedDetails = [...scoreResult.details].sort((a, b) => a.questionId - b.questionId);
+    const answersArray = sortedDetails.map(d => ({
+      q: d.questionId,
+      ans: d.userAnswer,
+      correct: d.correctAnswer,
+      score: d.itemScore,
+      isCorrect: d.isCorrect,
+      status: d.status
+    }));
+
     const answersMap = {};
     orientationQuizEngine.activeExamQuestions.forEach(q => {
       const val = orientationQuizEngine.userAnswers[q.id];
-      if (val !== undefined) {
+      if (val !== undefined && val !== null) {
         answersMap[q.id] = val;
       }
     });
 
-    const payload = {
-      action: 'syncLiveProgress',
+    const liveData = {
       empId: empId,
       fullName: fullName,
       department: department,
@@ -767,15 +808,32 @@ document.addEventListener('DOMContentLoaded', () => {
       percentage: scoreResult.percentage,
       isPassed: scoreResult.isPassed,
       isSubmitted: false,
-      answers: answersMap
+      timestamp: new Date().toLocaleTimeString('th-TH'),
+      answers: answersArray,
+      answersMap: answersMap
+    };
+
+    // ⚡ 1. อัปเดตเครื่อง Local ทันที (0ms ให้แดชบอร์ดที่เปิดในแท็บอื่น/หน้าต่างอื่นแสดงผลทันที)
+    saveLiveSessionLocally(empId, liveData);
+
+    // 🌐 2. ส่งขึ้น Google Apps Script เบื้องหลัง (Debounced 350ms)
+    clearTimeout(liveSyncTimeout);
+    liveSyncTimeout = setTimeout(() => sendLiveProgressSync(liveData), 350);
+  }
+
+  async function sendLiveProgressSync(liveData) {
+    if (!googleScriptUrl || !liveData) return;
+
+    const payload = {
+      action: 'syncLiveProgress',
+      ...liveData
     };
 
     try {
       fetch(googleScriptUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(payload),
-        keepalive: true
+        body: JSON.stringify(payload)
       }).catch(err => {
         // Non-blocking background catch
       });
@@ -860,6 +918,7 @@ document.addEventListener('DOMContentLoaded', () => {
       answers: answersPayload
     };
     orientationQuizEngine.recordSubmission(submissionRecord);
+    clearLiveSessionLocally(orientationQuizEngine.currentUser.empId);
 
     renderResultsScreen(scoreResult);
     switchScreen(screenResult);
@@ -994,7 +1053,32 @@ document.addEventListener('DOMContentLoaded', () => {
       const hasTaken = subs.length > 0;
 
       // ตรวจสอบความคืบหน้าแบบสด (Real-time Live Progress)
-      const liveRec = orientationQuizEngine.getEmployeeLiveProgress(person.empId);
+      const cleanId = orientationQuizEngine.cleanEmpId(person.empId);
+      // 1) เช็คจาก Local Storage (ทำงานทันที 0ms ข้ามแท็บ / เครื่องเดียวกัน)
+      const localLive = getLiveSessionLocally(person.empId);
+      // 2) เช็คจาก Google Sheet Backend (สำหรับการใช้งานข้ามอุปกรณ์/มือถือ)
+      const remoteLive = orientationQuizEngine.getEmployeeLiveProgress(person.empId);
+      // 3) เช็คจาก In-memory Session
+      let memLive = null;
+      if (orientationQuizEngine.currentUser && orientationQuizEngine.currentUser.empId) {
+        if (orientationQuizEngine.cleanEmpId(orientationQuizEngine.currentUser.empId) === cleanId) {
+          const mScore = orientationQuizEngine.calculateScore();
+          const mAnsCount = orientationQuizEngine.getAnsweredCount();
+          if (mAnsCount > 0) {
+            memLive = {
+              currentScore: mScore.totalScore,
+              maxScore: mScore.maxScore,
+              answeredCount: mAnsCount,
+              attemptNumber: orientationQuizEngine.currentUser.attemptNumber || (subs.length + 1),
+              isSubmitted: false,
+              answers: mScore.details.map(d => ({ q: d.questionId, ans: d.userAnswer, isCorrect: d.isCorrect, score: d.itemScore }))
+            };
+          }
+        }
+      }
+
+      // เลือกระเบียนข้อมูลสดที่ใหม่และสมบูรณ์ที่สุด
+      const liveRec = memLive || localLive || remoteLive;
       const isLiveActive = liveRec && (!liveRec.isSubmitted);
 
       let status = 'PENDING';
@@ -1528,7 +1612,32 @@ document.addEventListener('DOMContentLoaded', () => {
       const hasTaken = subs.length > 0;
 
       // ตรวจสอบความคืบหน้าแบบสด (Real-time Live Progress)
-      const liveRec = orientationQuizEngine.getEmployeeLiveProgress(person.empId);
+      const cleanId = orientationQuizEngine.cleanEmpId(person.empId);
+      // 1) เช็คจาก Local Storage (ทำงานทันที 0ms ข้ามแท็บ / เครื่องเดียวกัน)
+      const localLive = getLiveSessionLocally(person.empId);
+      // 2) เช็คจาก Google Sheet Backend (สำหรับการใช้งานข้ามอุปกรณ์/มือถือ)
+      const remoteLive = orientationQuizEngine.getEmployeeLiveProgress(person.empId);
+      // 3) เช็คจาก In-memory Session
+      let memLive = null;
+      if (orientationQuizEngine.currentUser && orientationQuizEngine.currentUser.empId) {
+        if (orientationQuizEngine.cleanEmpId(orientationQuizEngine.currentUser.empId) === cleanId) {
+          const mScore = orientationQuizEngine.calculateScore();
+          const mAnsCount = orientationQuizEngine.getAnsweredCount();
+          if (mAnsCount > 0) {
+            memLive = {
+              currentScore: mScore.totalScore,
+              maxScore: mScore.maxScore,
+              answeredCount: mAnsCount,
+              attemptNumber: orientationQuizEngine.currentUser.attemptNumber || (subs.length + 1),
+              isSubmitted: false,
+              answers: mScore.details.map(d => ({ q: d.questionId, ans: d.userAnswer, isCorrect: d.isCorrect, score: d.itemScore }))
+            };
+          }
+        }
+      }
+
+      // เลือกระเบียนข้อมูลสดที่ใหม่และสมบูรณ์ที่สุด
+      const liveRec = memLive || localLive || remoteLive;
       const isLiveActive = liveRec && (!liveRec.isSubmitted);
 
       let status = 'PENDING';
