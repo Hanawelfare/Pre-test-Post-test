@@ -21,18 +21,6 @@
   </div>
 
   <div class="app-container">
-    <!-- Top System Switch Banner -->
-    <div class="system-switch-bar">
-      <div>
-        <a href="./index.html"><i class="fa-solid fa-arrow-left"></i> กลับไประบบข้อสอบวินัยและการลงโทษ (เดิม)</a>
-      </div>
-      <div>
-        <span class="badge-pill bg-primary-soft">
-          <i class="fa-solid fa-sparkles"></i> ระบบใหม่: ปฐมนิเทศพนักงานรายวัน (25 ข้อ)
-        </span>
-      </div>
-    </div>
-
     <!-- Main Navbar -->
     <header class="navbar">
       <div class="brand">
@@ -360,8 +348,8 @@
         <!-- 📊 Socrative Item Analysis Card: % คนตอบถูกรายข้อ 1 - 25 -->
         <div id="dash-socrative-item-analysis" class="socrative-item-analysis-card">
           <div class="analysis-header">
-            <h4><i class="fa-solid fa-chart-column text-primary"></i> ผลการวิเคราะห์รายข้อ 1 - 25 สไตล์ Socrative (% คนตอบถูกรายข้อ)</h4>
-            <span class="text-muted" style="font-size:0.85rem;"><i class="fa-solid fa-circle-info"></i> คลิกที่ข้อเพื่อดูโจทย์และสถิติคนตอบถูก/ผิด</span>
+            <h4><i class="fa-solid fa-chart-column text-primary"></i> ผลวิเคราะห์รายข้อ 1 - 25 ตามโจทย์หลักสูตร (% คนตอบถูกรายข้อ)</h4>
+            <span class="text-muted" style="font-size:0.85rem;"><i class="fa-solid fa-circle-info"></i> กล่องสีแดง = ข้อที่คนตอบผิดมากที่สุด | คลิกที่ข้อเพื่อดูโจทย์และสถิติ</span>
           </div>
           <div id="socrative-analysis-grid" class="socrative-analysis-grid">
             <!-- Dynamic Question Accuracy Chips -->
@@ -404,7 +392,8 @@
 
         <!-- Mobile Scroll Hint -->
         <div class="table-scroll-hint">
-          <i class="fa-solid fa-arrows-left-right"></i> เลื่อนหน้าจอซ้าย-ขวา เพื่อดูผลตรวจรายข้อ 1 - 25
+          <span><i class="fa-solid fa-arrows-left-right"></i> เลื่อนหน้าจอซ้าย-ขวา เพื่อดูผลตรวจรายข้อ 1 - 25</span>
+          <span style="font-size:0.8rem; font-weight:600; opacity:0.95; margin-left:0.6rem;">• แสดงเรียงตามข้อ 1 - 25 บนหน้าจอของผู้เข้าสอบ</span>
         </div>
 
         <!-- Dashboard Table Container -->
