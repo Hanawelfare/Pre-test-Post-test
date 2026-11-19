@@ -349,7 +349,7 @@ class OrientationQuizEngine {
     let unansweredCount = 0;
     const details = [];
 
-    this.activeExamQuestions.forEach(q => {
+    this.activeExamQuestions.forEach((q, idx) => {
       const uAns = this.userAnswers[q.id];
       let itemScore = 0;
       let status = 'unanswered';
@@ -371,10 +371,13 @@ class OrientationQuizEngine {
       totalScore += itemScore;
 
       details.push({
+        screenIndex: idx,
+        screenNumber: idx + 1,
         questionId: q.id,
         questionText: q.question,
         userAnswer: uAns,
         correctAnswer: q.answer,
+        isCorrect: (uAns === q.answer),
         itemScore: itemScore,
         status: status,
         explanation: q.explanation
