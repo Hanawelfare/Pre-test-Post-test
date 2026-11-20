@@ -147,8 +147,22 @@ document.addEventListener('DOMContentLoaded', () => {
   function init() {
     bindEvents();
     loadCustomQuestionsFromStorage();
+    loadCachedEmployees();
     fetchDataFromGoogleSheet();
     initLivePolling();
+  }
+
+  // โหลดรายชื่อพนักงานจาก Cache ท้องถิ่นทันที (0ms Autofill โดยไม่ต้องรอ Network)
+  function loadCachedEmployees() {
+    try {
+      const cached = localStorage.getItem('orientation_cached_employees');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          orientationQuizEngine.updateEmployeeDatabase(parsed);
+        }
+      }
+    } catch(e) {}
   }
 
   let livePollInterval = null;
@@ -238,8 +252,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let lookupTimer;
     inputEmpId.addEventListener('input', () => {
       clearTimeout(lookupTimer);
-      lookupTimer = setTimeout(performEmpLookup, 350);
+      lookupTimer = setTimeout(performEmpLookup, 150);
     });
+    inputEmpId.addEventListener('change', performEmpLookup);
     inputEmpId.addEventListener('blur', performEmpLookup);
 
     // Form Submit -> Start Exam
@@ -503,12 +518,19 @@ document.addEventListener('DOMContentLoaded', () => {
       if (data.status === 'success') {
         if (Array.isArray(data.employees)) {
           orientationQuizEngine.updateEmployeeDatabase(data.employees);
+          try {
+            localStorage.setItem('orientation_cached_employees', JSON.stringify(data.employees));
+          } catch(e) {}
         }
         if (Array.isArray(data.submissions)) {
           orientationQuizEngine.syncSubmissionsLog(data.submissions);
         }
         if (Array.isArray(data.liveProgress)) {
           orientationQuizEngine.syncLiveProgress(data.liveProgress);
+        }
+        // 🌟 ถ้าระหว่างที่กำลังดึงข้อมูล มีการกรอกรหัสพนักงานค้างไว้ ให้ Auto-fill ทันทีที่ข้อมูลมาถึง
+        if (inputEmpId && inputEmpId.value.trim()) {
+          performEmpLookup();
         }
         if (isAdminLoggedIn && !screenDashboard.classList.contains('hidden')) {
           renderDashboard();
