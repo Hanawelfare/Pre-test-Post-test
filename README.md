@@ -69,7 +69,7 @@ pre-post-test-system/
 ## 🛠️ การตั้งค่า Google Sheets
 
 ระบบตั้งค่าให้เชื่อมต่อกับ Google Apps Script Web App เดิมของคุณไว้อัตโนมัติเรียบร้อยแล้ว:
-`https://script.google.com/macros/s/AKfycbwvYgRcvzKO7pdGhcGXgrUFF3XW2ENMhhulJlrWJuCHu_pyrVTKMzEWOme_fmVc5L5L/exec`
+`https://script.google.com/macros/s/AKfycbx-3oiFjfwjwSaxK36QnZmYXRnuLcUgSYjiAQaHokje4rtslEPQRi-rVezkoKVZcEa7/exec`
 
 หากต้องการให้ผลสอบแยกเป็นแท็บ **`ผลสอบปฐมนิเทศ`** โดยเฉพาะ:
 1. ไปที่ Google Sheet ของคุณ -> เมนู **ส่วนขยาย (Extensions)** -> **Apps Script**
