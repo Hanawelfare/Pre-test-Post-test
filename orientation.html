@@ -141,14 +141,20 @@
             </div>
           </div>
 
-          <div class="quiz-progress-wrapper">
-            <div class="quiz-progress-text">
-              <span>ความคืบหน้า</span>
-              <strong id="quiz-progress-num">1 / 25</strong>
+          <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+            <div class="quiz-progress-wrapper">
+              <div class="quiz-progress-text">
+                <span>ความคืบหน้า</span>
+                <strong id="quiz-progress-num">1 / 25</strong>
+              </div>
+              <div class="progress-bar-bg">
+                <div id="quiz-progress-fill" class="progress-bar-fill" style="width: 4%;"></div>
+              </div>
             </div>
-            <div class="progress-bar-bg">
-              <div id="quiz-progress-fill" class="progress-bar-fill" style="width: 4%;"></div>
-            </div>
+
+            <button type="button" id="btn-exit-exam" class="btn btn-outline-danger btn-sm" title="ออกจากห้องสอบ (ล้างคำตอบที่ทำไว้เพื่อเริ่มทำใหม่)" style="display:inline-flex; align-items:center; gap:0.35rem; font-size:0.8rem; padding:0.45rem 0.85rem; border-radius:8px; border:1.5px solid #fca5a5; color:#dc2626; background:#ffffff; font-weight:600; cursor:pointer;">
+              <i class="fa-solid fa-arrow-right-from-bracket"></i> ออกจากห้องสอบ (เริ่มใหม่)
+            </button>
           </div>
         </div>
 
@@ -386,6 +392,9 @@
             </select>
             <button id="btn-export-csv" class="btn btn-success btn-sm" title="ดาวน์โหลดผลสอบรายข้อแนว Socrative ออกมาเป็นไฟล์ Excel/CSV">
               <i class="fa-solid fa-file-excel"></i> ดาวน์โหลดไฟล์ Socrative (.csv)
+            </button>
+            <button type="button" id="btn-reset-all-live" class="btn btn-outline-danger btn-sm" title="ล้างสถานะข้อสอบที่ค้างอยู่ทั้งหมด (เพื่อให้เริ่มสอบใหม่ได้)" style="color:#dc2626; border-color:#fca5a5; font-weight:600; background:#fff;">
+              <i class="fa-solid fa-rotate-left"></i> ล้างสถานะค้างทั้งหมด
             </button>
           </div>
         </div>
