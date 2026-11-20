@@ -166,25 +166,47 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   let livePollInterval = null;
+  let isFetchingLive = false;
   // ⚡ BroadcastChannel เชื่อมโยงข้ามแท็บ/หน้าต่างแบบเรียลไทม์ทันที 0ms (ไม่ต้องรอ Polling)
   const syncChannel = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('orientation_sync_channel') : null;
 
   function initLivePolling() {
     if (livePollInterval) clearInterval(livePollInterval);
 
-    // 1. Cloud Polling ตรวจสอบข้อมูลจาก Google Sheet อัตโนมัติทุก 2 วินาที (สำหรับใช้งานข้ามอุปกรณ์/มือถือ)
-    livePollInterval = setInterval(() => {
+    // 1. Cloud Polling ตรวจสอบข้อมูลจาก Google Sheet อัตโนมัติทุก 1.5 วินาที (สำหรับใช้งานข้ามอุปกรณ์/มือถือ)
+    livePollInterval = setInterval(async () => {
       if (isAdminLoggedIn && !screenDashboard.classList.contains('hidden')) {
         if (!toggleLivePolling || toggleLivePolling.checked) {
-          fetchDataFromGoogleSheet(true);
+          if (!isFetchingLive) {
+            isFetchingLive = true;
+            try {
+              await fetchDataFromGoogleSheet(true);
+            } finally {
+              isFetchingLive = false;
+            }
+          }
         }
       }
-    }, 2000);
+    }, 1500);
 
     // 2. รับสัญญาณสดทันที 0ms ผ่าน BroadcastChannel (เมื่อเปิดข้อสอบและแดชบอร์ดคนละแท็บ)
     if (syncChannel) {
       syncChannel.onmessage = (event) => {
-        if (event.data && (event.data.type === 'LIVE_UPDATE' || event.data.type === 'RESET_LIVE')) {
+        if (event.data && event.data.type === 'LIVE_UPDATE' && event.data.liveData) {
+          saveLiveSessionLocally(event.data.empId, event.data.liveData);
+          const cleanTarget = orientationQuizEngine.cleanEmpId(event.data.empId);
+          const existingIdx = orientationQuizEngine.liveProgressLog.findIndex(l => orientationQuizEngine.cleanEmpId(l.empId) === cleanTarget);
+          if (existingIdx !== -1) {
+            orientationQuizEngine.liveProgressLog[existingIdx] = event.data.liveData;
+          } else {
+            orientationQuizEngine.liveProgressLog.push(event.data.liveData);
+          }
+          if (isAdminLoggedIn && !screenDashboard.classList.contains('hidden')) {
+            renderDashboard();
+          }
+        } else if (event.data && event.data.type === 'RESET_LIVE') {
+          clearLiveSessionLocally(event.data.empId);
+          orientationQuizEngine.clearEmployeeLiveProgress(event.data.empId);
           if (isAdminLoggedIn && !screenDashboard.classList.contains('hidden')) {
             renderDashboard();
           }
@@ -912,6 +934,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ⚡ 1. อัปเดตเครื่อง Local ทันที (0ms ให้แดชบอร์ดที่เปิดในแท็บอื่น/หน้าต่างอื่นแสดงผลทันที)
     saveLiveSessionLocally(empId, liveData);
+    const cleanIdTarget = orientationQuizEngine.cleanEmpId(empId);
+    const existIdx = orientationQuizEngine.liveProgressLog.findIndex(l => orientationQuizEngine.cleanEmpId(l.empId) === cleanIdTarget);
+    if (existIdx !== -1) {
+      orientationQuizEngine.liveProgressLog[existIdx] = liveData;
+    } else {
+      orientationQuizEngine.liveProgressLog.push(liveData);
+    }
 
     // ⚡ 2. ส่งสัญญาณ Broadcast ทันที (0ms ให้ทุกแท็บที่เปิดแดชบอร์ดอยู่แสดงผลทันที)
     if (syncChannel) {
@@ -1347,8 +1376,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
-      // เลือกระเบียนข้อมูลสดที่ใหม่และสมบูรณ์ที่สุด
-      const liveRec = memLive || localLive || remoteLive;
+      // 🌟 เลือกระเบียนข้อมูลสดที่ใหม่และมีจำนวนข้อที่ตอบมากที่สุด (Most Complete & Recent)
+      const candidates = [localLive, remoteLive, memLive].filter(Boolean);
+      let liveRec = null;
+      if (candidates.length > 0) {
+        // เรียงตามจำนวนข้อที่ตอบมากที่สุด (answeredCount) เพื่อให้ได้ข้อมูลสดล่าสุดเสมอ
+        candidates.sort((a, b) => (b.answeredCount || 0) - (a.answeredCount || 0));
+        liveRec = candidates[0];
+      }
       const isLiveActive = liveRec && (!liveRec.isSubmitted);
 
       let status = 'PENDING';
@@ -2060,8 +2095,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
-      // เลือกระเบียนข้อมูลสดที่ใหม่และสมบูรณ์ที่สุด
-      const liveRec = memLive || localLive || remoteLive;
+      // 🌟 เลือกระเบียนข้อมูลสดที่ใหม่และมีจำนวนข้อที่ตอบมากที่สุด (Most Complete & Recent)
+      const candidates = [localLive, remoteLive, memLive].filter(Boolean);
+      let liveRec = null;
+      if (candidates.length > 0) {
+        // เรียงตามจำนวนข้อที่ตอบมากที่สุด (answeredCount) เพื่อให้ได้ข้อมูลสดล่าสุดเสมอ
+        candidates.sort((a, b) => (b.answeredCount || 0) - (a.answeredCount || 0));
+        liveRec = candidates[0];
+      }
       const isLiveActive = liveRec && (!liveRec.isSubmitted);
 
       let status = 'PENDING';
