@@ -195,10 +195,31 @@ class OrientationQuizEngine {
     if (!empId) return null;
     const target = this.cleanEmpId(empId);
     if (!target) return null;
-    return this.employeeDatabase.find(e => {
+
+    // 1. ค้นหาจากฐานข้อมูลพนักงานหลัก (แท็บ Name)
+    const emp = this.employeeDatabase.find(e => {
       const dbId = this.cleanEmpId(e.empId);
       return dbId === target;
     });
+    if (emp && emp.fullName) return emp;
+
+    // 2. ค้นหาจากประวัติความคืบหน้าสด (Live Progress) กรณีพนักงานทำค้างไว้
+    const live = this.liveProgressLog.find(l => {
+      return this.cleanEmpId(l.empId) === target && l.fullName && l.fullName.trim() !== 'test';
+    });
+    if (live && live.fullName) {
+      return { empId: live.empId, fullName: live.fullName, department: live.department || '' };
+    }
+
+    // 3. ค้นหาจากประวัติการสอบที่เคยส่ง (Submissions Log)
+    const sub = this.submissionsLog.find(s => {
+      return this.cleanEmpId(s.empId) === target && s.fullName && s.fullName.trim() !== 'test';
+    });
+    if (sub && sub.fullName) {
+      return { empId: sub.empId, fullName: sub.fullName, department: sub.department || '' };
+    }
+
+    return null;
   }
 
   syncSubmissionsLog(fetchedSubmissions) {
