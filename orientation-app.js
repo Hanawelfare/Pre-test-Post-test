@@ -4,7 +4,7 @@
  */
 
 // 📌 Web App URL จาก Google Apps Script สำหรับพนักงานทุกคนใช้งานร่วมกันอัตโนมัติ
-const DEFAULT_GS_URL = "https://script.google.com/macros/s/AKfycbwvYgRcvzKO7pdGhcGXgrUFF3XW2ENMhhulJlrWJuCHu_pyrVTKMzEWOme_fmVc5L5L/exec";
+const DEFAULT_GS_URL = "https://script.google.com/macros/s/AKfycbx-3oiFjfwjwSaxK36QnZmYXRnuLcUgSYjiAQaHokje4rtslEPQRi-rVezkoKVZcEa7/exec";
 
 // 📌 รหัสผ่านผู้ดูแลระบบ (Admin Password)
 const ADMIN_PASSWORD = "pa2026";
@@ -411,11 +411,15 @@ document.addEventListener('DOMContentLoaded', () => {
       modalAdminPanel.classList.add('hidden');
     });
 
-    btnSaveGsUrl.addEventListener('click', () => {
+    btnSaveGsUrl.addEventListener('click', async () => {
       googleScriptUrl = inputGsUrl.value.trim() || DEFAULT_GS_URL;
       localStorage.setItem('orientation_test_gs_url', googleScriptUrl);
-      alert("บันทึก Google Apps Script Web App URL เรียบร้อยแล้ว");
-      fetchDataFromGoogleSheet();
+      btnSaveGsUrl.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...`;
+      await fetchDataFromGoogleSheet();
+      btnSaveGsUrl.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> บันทึก URL`;
+      alert("บันทึก Google Apps Script Web App URL และซิงก์ข้อมูลพนักงานเรียบร้อยแล้วค่ะ");
+      modalAdminPanel.classList.add('hidden');
+      renderDashboard();
     });
 
     btnTestGsUrl.addEventListener('click', async () => {
@@ -430,7 +434,25 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = await resp.json();
         btnTestGsUrl.innerHTML = `<i class="fa-solid fa-plug"></i> ทดสอบการเชื่อมต่อ`;
         if (data.status === 'success') {
-          alert(`เชื่อมต่อสำเร็จ!\nพบข้อมูลพนักงานในชีท ${data.employees ? data.employees.length : 0} รายการ`);
+          // 🌟 Auto-save และซิงก์ข้อมูลลงระบบทันทีที่เชื่อมต่อสำเร็จ
+          googleScriptUrl = testUrl;
+          localStorage.setItem('orientation_test_gs_url', testUrl);
+
+          if (Array.isArray(data.employees)) {
+            orientationQuizEngine.updateEmployeeDatabase(data.employees);
+            try {
+              localStorage.setItem('orientation_cached_employees', JSON.stringify(data.employees));
+            } catch(e) {}
+          }
+          if (Array.isArray(data.submissions)) {
+            orientationQuizEngine.syncSubmissionsLog(data.submissions);
+          }
+          if (Array.isArray(data.liveProgress)) {
+            orientationQuizEngine.syncLiveProgress(data.liveProgress);
+          }
+
+          renderDashboard();
+          alert(`เชื่อมต่อสำเร็จและบันทึก URL ให้เรียบร้อยแล้วค่ะ! 🎉\nพบข้อมูลพนักงานในชีท ${data.employees ? data.employees.length : 0} รายการ (ระบบอัปเดตฐานข้อมูลให้ทันที)`);
         } else {
           alert(`ตอบกลับข้อมูล: ${JSON.stringify(data)}`);
         }
