@@ -243,6 +243,16 @@ class OrientationQuizEngine {
     return this.liveProgressLog.find(l => this.cleanEmpId(l.empId) === target) || null;
   }
 
+  clearEmployeeLiveProgress(empId) {
+    if (!empId) return;
+    if (empId === 'ALL') {
+      this.liveProgressLog = [];
+      return;
+    }
+    const target = this.cleanEmpId(empId);
+    this.liveProgressLog = this.liveProgressLog.filter(l => this.cleanEmpId(l.empId) !== target);
+  }
+
   getEmployeeSubmissions(empId) {
     if (!empId) return [];
     const target = this.cleanEmpId(empId);
