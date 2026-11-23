@@ -317,7 +317,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 🚪 เมื่อพนักงานออกจากหน้าข้อสอบ (ปิดแท็บ / ปิดเบราว์เซอร์ / รีเฟรช / สลับหน้า)
     // ถือว่าออกจากการทำข้อสอบทันที: ให้ระบบลบออกจากสถานะ "กำลังทำ" บนแดชบอร์ดอัตโนมัติ โดยไม่ต้องรอให้กดปุ่ม
-    window.addEventListener('pagehide', notifyAutoExitExam);
+    window.addEventListener('pagehide', (e) => {
+      // ถ้า e.persisted เป็น true คือเบราว์เซอร์แค่ freeze หน้าเว็บไว้ใน bfcache (เช่น สลับแอปไปแป๊บเดียว) ห้ามล้างข้อมูล
+      if (e.persisted) return;
+      notifyAutoExitExam();
+    });
     window.addEventListener('beforeunload', notifyAutoExitExam);
 
     // Fast Jump to Next Skipped Question
