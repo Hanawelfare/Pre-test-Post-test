@@ -378,6 +378,7 @@ body {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   border: 1.5px solid transparent;
   text-decoration: none;
+  white-space: nowrap;
 }
 
 .btn-primary {
@@ -1036,6 +1037,13 @@ body {
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1.5px solid #f1f5f9;
+}
+
+.quiz-footer-controls .btn {
+  white-space: nowrap;
 }
 
 .question-summary-badge {
@@ -2061,17 +2069,65 @@ body {
     font-size: 1.1rem;
   }
 
-  /* Quiz Navigation Controls */
-  .quiz-nav-bar {
-    flex-direction: column-reverse;
-    gap: 0.75rem;
+  /* Quiz Footer Navigation Controls on Mobile (Clean 2-Row Grid, No Squeezing) */
+  .quiz-footer-controls {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.85rem 0.65rem !important;
+    align-items: center !important;
+    margin-top: 1.5rem !important;
+    padding-top: 1.15rem !important;
+    border-top: 1.5px solid #e2e8f0 !important;
   }
 
-  .quiz-nav-bar .btn {
-    width: 100%;
-    min-height: 48px;
-    font-size: 1rem;
-    justify-content: center;
+  /* Row 1: Summary Badge (Left) & Skip Shortcut Button (Right) */
+  .quiz-footer-controls #answered-count-badge {
+    grid-column: 1 / 2;
+    grid-row: 1;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--primary);
+    white-space: nowrap;
+    text-align: left;
+    margin: 0;
+  }
+
+  .quiz-footer-controls #btn-footer-next-skipped {
+    grid-column: 2 / 3;
+    grid-row: 1;
+    justify-self: end;
+    white-space: nowrap;
+    font-size: 0.82rem;
+    padding: 0.45rem 0.75rem;
+    border-radius: var(--radius-sm);
+    min-height: 38px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  /* Row 2: Nav Buttons (50% each on row 2, large tap target, nowrap) */
+  .quiz-footer-controls #btn-prev-q {
+    grid-column: 1 / 2;
+    grid-row: 2;
+    width: 100% !important;
+    min-height: 48px !important;
+    font-size: 0.95rem !important;
+    white-space: nowrap !important;
+    justify-content: center !important;
+    border-radius: var(--radius-md) !important;
+  }
+
+  .quiz-footer-controls #btn-next-q,
+  .quiz-footer-controls #btn-submit-exam {
+    grid-column: 2 / 3;
+    grid-row: 2;
+    width: 100% !important;
+    min-height: 48px !important;
+    font-size: 0.95rem !important;
+    white-space: nowrap !important;
+    justify-content: center !important;
+    border-radius: var(--radius-md) !important;
   }
 
   /* Skipped Pills Bar */
@@ -2184,5 +2240,66 @@ body {
 
   .option-btn {
     font-size: 0.95rem;
+  }
+}
+
+/* 🖥️ PA Screen, Meeting Room Projectors & Large Monitors (min-width: 1400px) */
+@media (min-width: 1400px) {
+  .app-container {
+    max-width: 1380px;
+  }
+
+  .screen-card {
+    padding: 2.25rem 2.5rem;
+  }
+
+  .dash-stats-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.25rem;
+  }
+
+  .dash-stat-number {
+    font-size: 2.2rem;
+  }
+
+  .dash-stat-label {
+    font-size: 1.05rem;
+  }
+
+  .socrative-cell {
+    width: 38px;
+    height: 34px;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .custom-table th,
+  .custom-table td {
+    padding: 0.95rem 0.85rem;
+    font-size: 0.98rem;
+  }
+
+  .socrative-chip {
+    padding: 0.6rem 0.4rem;
+    min-height: 52px;
+  }
+
+  .socrative-chip .chip-q-num {
+    font-size: 0.85rem;
+  }
+
+  .socrative-chip .chip-pct {
+    font-size: 1.05rem;
+    font-weight: 700;
+  }
+
+  .q-text {
+    font-size: 1.35rem;
+    line-height: 1.7;
+  }
+
+  .option-btn {
+    padding: 1.45rem 1.85rem;
+    font-size: 1.25rem;
   }
 }
