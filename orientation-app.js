@@ -7,7 +7,7 @@
 const DEFAULT_GS_URL = "https://script.google.com/macros/s/AKfycbx-3oiFjfwjwSaxK36QnZmYXRnuLcUgSYjiAQaHokje4rtslEPQRi-rVezkoKVZcEa7/exec";
 
 // 📌 รหัสผ่านผู้ดูแลระบบ (Admin Password)
-const ADMIN_PASSWORD = "pa2026";
+const ADMIN_PASSWORD = "089151";
 
 document.addEventListener('DOMContentLoaded', () => {
   // Navigation & Admin Controls
@@ -270,12 +270,14 @@ document.addEventListener('DOMContentLoaded', () => {
       btnAdminDashLogout.addEventListener('click', handleAdminLogout);
     }
 
-    // Employee ID Lookup
+    // Employee ID Lookup (Instant Autofill 0ms)
     let lookupTimer;
     inputEmpId.addEventListener('input', () => {
       clearTimeout(lookupTimer);
-      lookupTimer = setTimeout(performEmpLookup, 150);
+      lookupTimer = setTimeout(performEmpLookup, 20);
     });
+    inputEmpId.addEventListener('keyup', performEmpLookup);
+    inputEmpId.addEventListener('paste', () => setTimeout(performEmpLookup, 10));
     inputEmpId.addEventListener('change', performEmpLookup);
     inputEmpId.addEventListener('blur', performEmpLookup);
 
@@ -312,6 +314,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnExitExam) {
       btnExitExam.addEventListener('click', handleExitAndResetExam);
     }
+
+    // 🚪 เมื่อพนักงานออกจากหน้าข้อสอบ (ปิดแท็บ / ปิดเบราว์เซอร์ / รีเฟรช / สลับหน้า)
+    // ถือว่าออกจากการทำข้อสอบทันที: ให้ระบบลบออกจากสถานะ "กำลังทำ" บนแดชบอร์ดอัตโนมัติ โดยไม่ต้องรอให้กดปุ่ม
+    window.addEventListener('pagehide', notifyAutoExitExam);
+    window.addEventListener('beforeunload', notifyAutoExitExam);
 
     // Fast Jump to Next Skipped Question
     if (btnJumpNextSkipped) {
@@ -550,12 +557,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!googleScriptUrl) return;
     try {
       if (!silent) lookupSpinner.classList.remove('hidden');
-      // 🌟 ใส่ cache-buster และ cache: 'no-store' ป้องกัน Browser แคชผล ทำให้ข้อมูลอัปเดตสดทันที
+      // 🌟 ใส่ cache-buster ป้องกัน Browser แคชผล (Simple Request ปราศจาก Custom Headers เพื่อป้องกันปัญหา CORS บนมือถือ)
       const cacheBuster = Date.now();
-      const resp = await fetch(`${googleScriptUrl}?action=getEmployees&sheet=ผลสอบปฐมนิเทศ&_t=${cacheBuster}`, {
-        cache: 'no-store',
-        headers: { 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }
-      });
+      const resp = await fetch(`${googleScriptUrl}?action=getEmployees&sheet=ผลสอบปฐมนิเทศ&_t=${cacheBuster}`);
       const data = await resp.json();
       if (!silent) lookupSpinner.classList.add('hidden');
 
@@ -1163,6 +1167,42 @@ document.addEventListener('DOMContentLoaded', () => {
   // ==========================================
   // RESET & EXIT HANDLERS (ล้างสถานะเพื่อเริ่มใหม่)
   // ==========================================
+  // 🚪 ตรวจจับเมื่อพนักงานออกจากหน้าข้อสอบ (ปิดแท็บ / ปิดเบราว์เซอร์ / รีเฟรช / สลับหน้า)
+  // ให้ถือว่าออกจากการทำข้อสอบทันที: ลบออกจากสถานะ "กำลังทำ" บนแดชบอร์ดอัตโนมัติ โดยไม่ต้องรอให้กดปุ่ม
+  function notifyAutoExitExam() {
+    if (!orientationQuizEngine || !orientationQuizEngine.currentUser || !orientationQuizEngine.currentUser.empId) return;
+    if (orientationQuizEngine.isExamSubmitted) return; // ถ้าส่งข้อสอบแล้ว ไม่ต้องรีเซ็ต
+
+    const empId = orientationQuizEngine.currentUser.empId;
+
+    // 1. ล้างสถานะเครื่อง Local ทันที
+    clearLiveSessionLocally(empId);
+    orientationQuizEngine.clearEmployeeLiveProgress(empId);
+
+    // 2. Broadcast ไปยังแดชบอร์ดแท็บอื่นทันที (0ms)
+    if (syncChannel) {
+      try {
+        syncChannel.postMessage({ type: 'RESET_LIVE', empId: empId });
+      } catch(e) {}
+    }
+
+    // 3. ส่งคำสั่งรีเซ็ตไปยัง Google Apps Script เบื้องหลัง
+    if (googleScriptUrl) {
+      const payload = JSON.stringify({ action: 'resetLiveProgress', empId: empId });
+      if (navigator.sendBeacon) {
+        const blob = new Blob([payload], { type: 'text/plain;charset=utf-8' });
+        navigator.sendBeacon(googleScriptUrl, blob);
+      } else {
+        fetch(googleScriptUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: payload,
+          keepalive: true
+        }).catch(() => {});
+      }
+    }
+  }
+
   function handleExitAndResetExam() {
     if (!orientationQuizEngine.currentUser) {
       switchScreen(screenLogin);
@@ -1750,10 +1790,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // สร้างช่องสัญลักษณ์ Socrative สำหรับข้อ 1 - 25 ตามลำดับหน้าจอ (Screen Order 1-25)
         for (let q = 1; q <= 25; q++) {
           let item = null;
-          if (Array.isArray(row.screenAnswers) && row.screenAnswers.length >= q) {
+          if (Array.isArray(row.screenAnswers)) {
+            item = row.screenAnswers.find(a => (a && (a.screenQ === q || a.screenNumber === q)));
+          }
+          if (!item && Array.isArray(row.answers)) {
+            item = row.answers.find(a => (a && (a.screenQ === q || a.screenNumber === q)));
+          }
+          if (!item && Array.isArray(row.screenAnswers) && row.screenAnswers.length === 25) {
             item = row.screenAnswers[q - 1];
-          } else if (Array.isArray(row.answers)) {
-            item = row.answers.find(a => (a.screenQ === q || a.screenNumber === q)) || row.answers[q - 1];
           }
 
           const hasAnswered = item && item.ans !== undefined && item.ans !== null;
