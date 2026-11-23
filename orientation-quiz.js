@@ -12,6 +12,7 @@ class OrientationQuizEngine {
     this.currentQuestionIndex = 0;
     this.userAnswers = {}; // { questionId: boolean }
     this.currentUser = null; // { empId, fullName, department, attemptNumber }
+    this.isExamSubmitted = false;
     
     // Employee database (synced from Google Sheet tab "Name")
     this.employeeDatabase = [];
@@ -23,6 +24,7 @@ class OrientationQuizEngine {
     this.liveProgressLog = [];
 
     this.initDefaultQuestions();
+    this.initDefaultEmployees();
   }
 
   initDefaultQuestions() {
@@ -180,32 +182,83 @@ class OrientationQuizEngine {
     ];
   }
 
+  initDefaultEmployees() {
+    this.employeeDatabase = [
+      { empId: "090771", fullName: "โสภณ ทองไพจิตร", department: "OP2S" },
+      { empId: "090772", fullName: "ณัฐพล ปงแปง", department: "OP4" },
+      { empId: "090773", fullName: "พิชญ์รดา กึกกอง", department: "QMSS" },
+      { empId: "090774", fullName: "ทิวาณี ประมูลสิน", department: "QMSS" },
+      { empId: "090775", fullName: "พีรพรรณ พิลึก", department: "QMSS" },
+      { empId: "090776", fullName: "สุภาวรรณ วรรณห้วย", department: "QMSS" },
+      { empId: "090777", fullName: "วิมล พิทักษ์", department: "QMSS" },
+      { empId: "090778", fullName: "ฐิติกาญจน์ ก้อนแก้ว", department: "OP2S" },
+      { empId: "090779", fullName: "สุภนิดา ดีดี", department: "OP2S" },
+      { empId: "090780", fullName: "อริสา หล้าเขียว", department: "OP2S" },
+      { empId: "090781", fullName: "ณัฐพร จันทะนา", department: "OP2S" },
+      { empId: "090782", fullName: "ฉวีวรรณ สุริยะวงค์", department: "OP2S" },
+      { empId: "090783", fullName: "วรางคณา สมไผ่", department: "OP3" },
+      { empId: "090784", fullName: "นิลลดา สุวรรณ์", department: "OP3" },
+      { empId: "090785", fullName: "ชุติกาญจน์ นันชัย", department: "OP3" },
+      { empId: "090786", fullName: "สุพัตรา สีมา", department: "OP3" },
+      { empId: "090787", fullName: "สุวรรณนรัฐ ผัดเป้า", department: "OP3" },
+      { empId: "090788", fullName: "นิศารัตน์ เทียมเย็น", department: "OP3" },
+      { empId: "090789", fullName: "กัญญารัตน์ บุญคำ", department: "OP3" },
+      { empId: "090790", fullName: "ศิรประภา ก้อนสินธุ์", department: "OP3" },
+      { empId: "090791", fullName: "พัชรินทร์ ดุกสุกแก้ว", department: "OP3" },
+      { empId: "090792", fullName: "ครองขวัญ มณีนิติกร", department: "OP3" },
+      { empId: "090793", fullName: "แสงเดือน ร่มพนาธรรม", department: "OP3" },
+      { empId: "090794", fullName: "ณัฐนันท์ ใจคำ", department: "OP3" },
+      { empId: "090795", fullName: "ณัฐภัสสร อนุเวช", department: "OP3" },
+      { empId: "090796", fullName: "ภูษณิศา ขัดต๊ะ", department: "OP3" },
+      { empId: "090797", fullName: "สุชาดา ปาสะละ", department: "OP3" },
+      { empId: "090798", fullName: "ณิชาริญ จันทร์อิ่ม", department: "OP3" },
+      { empId: "090799", fullName: "นันทิกานต์ ขัดปัญญา", department: "OP3" },
+      { empId: "090800", fullName: "มนฤดี ชัยรัตน์", department: "OP3" },
+      { empId: "090801", fullName: "สิริยุพา รุ่งธีรกานต์", department: "OP3" },
+      { empId: "090802", fullName: "กมลชนก ลีลาวรรธนะ", department: "OP3" },
+      { empId: "090803", fullName: "ประภัสสร สุมามาล", department: "OP3" },
+      { empId: "090804", fullName: "มณีวรรณ แจ่มจ้า", department: "OP3" },
+      { empId: "090805", fullName: "วณัชยา โปธิสิงห์", department: "OP3" }
+    ];
+  }
+
   updateEmployeeDatabase(data) {
-    if (Array.isArray(data)) {
+    if (Array.isArray(data) && data.length > 0) {
       this.employeeDatabase = data;
     }
   }
 
   cleanEmpId(empId) {
     if (!empId) return '';
-    return empId.toString().replace(/^'/, '').trim().toUpperCase().replace(/^0+/, '');
+    let s = empId.toString().replace(/^'/, '').trim().toUpperCase();
+    // แปลงเลขไทย ๐-๙ เป็น 0-9
+    const thaiDigits = ['๐','๑','๒','๓','๔','๕','๖','๗','๘','๙'];
+    for (let i = 0; i < thaiDigits.length; i++) {
+      s = s.split(thaiDigits[i]).join(i.toString());
+    }
+    // ตัดเลขศูนย์นำหน้า
+    return s.replace(/^0+/, '');
   }
 
   lookupEmployee(empId) {
     if (!empId) return null;
-    const target = this.cleanEmpId(empId);
-    if (!target) return null;
+    const rawTrimmed = empId.toString().replace(/^'/, '').trim().toUpperCase();
+    const cleanTarget = this.cleanEmpId(empId);
+    if (!cleanTarget) return null;
 
     // 1. ค้นหาจากฐานข้อมูลพนักงานหลัก (แท็บ Name)
     const emp = this.employeeDatabase.find(e => {
-      const dbId = this.cleanEmpId(e.empId);
-      return dbId === target;
+      const dbRaw = (e.empId || '').toString().replace(/^'/, '').trim().toUpperCase();
+      const dbClean = this.cleanEmpId(e.empId);
+      return dbClean === cleanTarget || dbRaw === rawTrimmed;
     });
     if (emp && emp.fullName) return emp;
 
     // 2. ค้นหาจากประวัติความคืบหน้าสด (Live Progress) กรณีพนักงานทำค้างไว้
     const live = this.liveProgressLog.find(l => {
-      return this.cleanEmpId(l.empId) === target && l.fullName && l.fullName.trim() !== 'test';
+      const lClean = this.cleanEmpId(l.empId);
+      const lRaw = (l.empId || '').toString().replace(/^'/, '').trim().toUpperCase();
+      return (lClean === cleanTarget || lRaw === rawTrimmed) && l.fullName && l.fullName.trim() !== 'test';
     });
     if (live && live.fullName) {
       return { empId: live.empId, fullName: live.fullName, department: live.department || '' };
@@ -213,7 +266,9 @@ class OrientationQuizEngine {
 
     // 3. ค้นหาจากประวัติการสอบที่เคยส่ง (Submissions Log)
     const sub = this.submissionsLog.find(s => {
-      return this.cleanEmpId(s.empId) === target && s.fullName && s.fullName.trim() !== 'test';
+      const sClean = this.cleanEmpId(s.empId);
+      const sRaw = (s.empId || '').toString().replace(/^'/, '').trim().toUpperCase();
+      return (sClean === cleanTarget || sRaw === rawTrimmed) && s.fullName && s.fullName.trim() !== 'test';
     });
     if (sub && sub.fullName) {
       return { empId: sub.empId, fullName: sub.fullName, department: sub.department || '' };
@@ -289,6 +344,7 @@ class OrientationQuizEngine {
     this.currentUser = { ...userInfo };
     this.userAnswers = {};
     this.currentQuestionIndex = 0;
+    this.isExamSubmitted = false;
 
     // Determine attempt number
     if (forceAttemptNumber !== null) {
@@ -437,6 +493,7 @@ class OrientationQuizEngine {
   }
 
   recordSubmission(record) {
+    this.isExamSubmitted = true;
     const cleanId = this.cleanEmpId(record.empId);
     const existingCount = this.submissionsLog.filter(s => this.cleanEmpId(s.empId) === cleanId).length;
     record.attemptNumber = existingCount + 1;
