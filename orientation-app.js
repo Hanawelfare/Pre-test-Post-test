@@ -167,6 +167,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let livePollInterval = null;
   let isFetchingLive = false;
+  // ⚡ ตัวป้องกัน Race Condition ของการกดรีเซ็ต (กักกันไม่ให้ข้อมูลเก่าที่ Google Sheet ยังลบไม่เสร็จเด้งกลับมา)
+  window.__recentlyResetEmpIds = new Set();
+  window.__resetAllActive = false;
+
   // ⚡ BroadcastChannel เชื่อมโยงข้ามแท็บ/หน้าต่างแบบเรียลไทม์ทันที 0ms (ไม่ต้องรอ Polling)
   const syncChannel = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('orientation_sync_channel') : null;
 
@@ -406,7 +410,7 @@ document.addEventListener('DOMContentLoaded', () => {
     dashFilterStatus.addEventListener('change', renderDashboard);
     btnExportCsv.addEventListener('click', exportDashboardCsv);
     if (btnResetAllLive) {
-      btnResetAllLive.addEventListener('click', resetAllLiveProgress);
+      btnResetAllLive.addEventListener('click', () => resetAllLiveProgress(btnResetAllLive));
     }
 
     // Admin Auth Modal
@@ -628,7 +632,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Start Exam
+  // Start Exam (เริ่มทำข้อสอบใหม่เสมอเมื่อเข้าห้องสอบ)
   function startExam() {
     const empId = inputEmpId.value.trim();
     const fullName = inputFullName.value.trim();
@@ -638,6 +642,10 @@ document.addEventListener('DOMContentLoaded', () => {
       alert("กรุณาระบุรหัสพนักงาน ชื่อ-นามสกุล และแผนกให้ครบถ้วนก่อนเริ่มทำข้อสอบ");
       return;
     }
+
+    // 🔄 หากมีเซสชันค้างอยู่จากการเผลอปิดหน้าจอ ให้ล้างทิ้งแล้วเริ่มใหม่ตั้งแต่ข้อ 1 เสมอ
+    clearLiveSessionLocally(empId);
+    orientationQuizEngine.clearEmployeeLiveProgress(empId);
 
     const subs = orientationQuizEngine.getEmployeeSubmissions(empId);
     const attemptNum = subs.length + 1;
@@ -1247,11 +1255,26 @@ document.addEventListener('DOMContentLoaded', () => {
     pastAttemptBanner.classList.add('hidden');
   }
 
-  function resetEmployeeLiveProgress(empId, fullName) {
+  async function resetEmployeeLiveProgress(empId, fullName, btnElement = null) {
     if (!empId) return;
+    const cleanId = orientationQuizEngine.cleanEmpId(empId);
     const nameDisplay = fullName || empId;
     if (!confirm(`ต้องการรีเซ็ตสถานะของ "${nameDisplay}" (${empId}) เป็น "เริ่มใหม่" หรือไม่?\n\n(คำตอบที่ค้างอยู่จะถูกล้างออก และสถานะจะกลับเป็นยังไม่ทำ เพื่อให้พนักงานเริ่มทำใหม่ได้)`)) {
       return;
+    }
+
+    // 0. ป้องกัน Race Condition จาก Polling ลูป: กักกันรหัสนี้ไว้ 25 วินาที
+    if (!window.__recentlyResetEmpIds) window.__recentlyResetEmpIds = new Set();
+    window.__recentlyResetEmpIds.add(cleanId);
+    setTimeout(() => {
+      if (window.__recentlyResetEmpIds) window.__recentlyResetEmpIds.delete(cleanId);
+    }, 25000);
+
+    let origBtnHtml = '';
+    if (btnElement) {
+      origBtnHtml = btnElement.innerHTML;
+      btnElement.disabled = true;
+      btnElement.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> กำลังรีเซ็ต...`;
     }
 
     // 1. ล้าง Local
@@ -1260,7 +1283,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 2. Broadcast ทันที
     if (syncChannel) {
-      syncChannel.postMessage({ type: 'RESET_LIVE', empId: empId });
+      try {
+        syncChannel.postMessage({ type: 'RESET_LIVE', empId: empId });
+      } catch(e) {}
     }
 
     // 3. เรนเดอร์แดชบอร์ดทันที (0ms ไม่ต้องรอรีเฟรช)
@@ -1268,19 +1293,45 @@ document.addEventListener('DOMContentLoaded', () => {
       renderDashboard();
     }
 
-    // 4. ส่งไปลบในชีตความคืบหน้าเรียลไทม์
+    // 4. ส่งไปลบในชีตความคืบหน้าเรียลไทม์ และรอให้เสร็จสิ้น (await)
     if (googleScriptUrl) {
-      fetch(googleScriptUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'resetLiveProgress', empId: empId })
-      }).catch(() => {});
+      try {
+        await fetch(googleScriptUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'resetLiveProgress', empId: empId })
+        });
+      } catch (err) {
+        console.warn('Backend resetLiveProgress error:', err);
+      }
+    }
+
+    // 5. ปรับสถานะปุ่มและแสดงผล
+    if (btnElement) {
+      btnElement.innerHTML = `<i class="fa-solid fa-check"></i> รีเซ็ตแล้ว`;
+      setTimeout(() => {
+        if (isAdminLoggedIn && !screenDashboard.classList.contains('hidden')) {
+          renderDashboard();
+        }
+      }, 700);
     }
   }
 
-  function resetAllLiveProgress() {
+  async function resetAllLiveProgress(btnElement = null) {
     if (!confirm("คุณต้องการล้างสถานะข้อสอบที่ค้างอยู่ของพนักงานทุกคนหรือไม่?\n\n(สถานะ 'กำลังสอบ' ทั้งหมดจะถูกล้างกลับเป็น 'ยังไม่ทำ' เพื่อให้ทุกคนเริ่มทำใหม่ได้)")) {
       return;
+    }
+
+    window.__resetAllActive = true;
+    setTimeout(() => {
+      window.__resetAllActive = false;
+    }, 25000);
+
+    let origBtnHtml = '';
+    if (btnElement) {
+      origBtnHtml = btnElement.innerHTML;
+      btnElement.disabled = true;
+      btnElement.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> กำลังล้างทั้งหมด...`;
     }
 
     // 1. ล้าง Local storage ทุกรายการที่ขึ้นต้นด้วย orientation_live_
@@ -1298,7 +1349,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 2. Broadcast ทันที
     if (syncChannel) {
-      syncChannel.postMessage({ type: 'RESET_LIVE', empId: 'ALL' });
+      try {
+        syncChannel.postMessage({ type: 'RESET_LIVE', empId: 'ALL' });
+      } catch(e) {}
     }
 
     // 3. เรนเดอร์แดชบอร์ดทันที
@@ -1306,16 +1359,28 @@ document.addEventListener('DOMContentLoaded', () => {
       renderDashboard();
     }
 
-    // 4. ส่งไปลบในชีต Google Sheets
+    // 4. ส่งไปลบในชีต Google Sheets และรอจนเสร็จสิ้น (await)
     if (googleScriptUrl) {
-      fetch(googleScriptUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'resetLiveProgress', empId: 'ALL' })
-      }).catch(() => {});
+      try {
+        await fetch(googleScriptUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'resetLiveProgress', empId: 'ALL' })
+        });
+      } catch (err) {
+        console.warn('Backend resetAllLiveProgress error:', err);
+      }
     }
 
-    alert("ล้างสถานะค้างทั้งหมดเรียบร้อยแล้วค่ะ");
+    if (btnElement) {
+      btnElement.disabled = false;
+      btnElement.innerHTML = origBtnHtml;
+    }
+
+    alert("ล้างสถานะค้างทั้งหมดเรียบร้อยแล้วค่ะ ทุกคนสามารถเริ่มทำใหม่ได้ทันที");
+    if (isAdminLoggedIn && !screenDashboard.classList.contains('hidden')) {
+      renderDashboard();
+    }
   }
 
   /**
@@ -1667,6 +1732,8 @@ document.addEventListener('DOMContentLoaded', () => {
         let percentText = '-';
         let attemptText = '<span class="badge-pill bg-neutral">ยังไม่ทำ</span>';
 
+        let displayTimestamp = row.latestTimestamp;
+
         if (row.status === 'PASS') {
           statusBadge = `<span class="badge-status-pass"><i class="fa-solid fa-circle-check"></i> ผ่าน (PASS)</span>`;
           scoreText = `<strong style="color:#0369a1;">${row.score}</strong> / ${row.maxScore}`;
@@ -1678,10 +1745,28 @@ document.addEventListener('DOMContentLoaded', () => {
           percentText = `<strong style="color:#dc2626;">${row.percentage}%</strong>`;
           attemptText = `<span class="badge-pill bg-warning text-dark">รอบที่ ${row.attemptCount} (ต้องทำใหม่)</span>`;
         } else if (row.status === 'IN_PROGRESS') {
-          statusBadge = `<span class="badge-status-live"><i class="fa-solid fa-spinner fa-spin"></i> กำลังสอบ (${row.answeredCount || 0}/25)</span>`;
-          scoreText = `<strong style="color:#0284c7;">${row.score}</strong> / ${row.maxScore} <small style="color:#64748b;">(สด)</small>`;
-          percentText = `<strong style="color:#0284c7;">${row.percentage}%</strong>`;
+          const liveCorrect = (row.answers || []).filter(a => a && (a.isCorrect === true || a.score === 1)).length;
+          const liveAnswered = row.answeredCount || (row.answers || []).length;
+          const liveWrong = Math.max(0, liveAnswered - liveCorrect);
+          const remainingQ = Math.max(0, 25 - liveAnswered);
+
+          statusBadge = `<span class="badge-status-live"><i class="fa-solid fa-spinner fa-spin"></i> กำลังสอบ (${liveAnswered}/25)</span>`;
+          scoreText = `
+            <div><strong style="color:#0284c7; font-size:1.05rem;">${row.score}</strong> / ${row.maxScore} <small style="color:#64748b;">(สด)</small></div>
+            <div style="font-size:0.78rem; margin-top:3px; display:inline-flex; gap:4px; flex-wrap:wrap;">
+              <span style="background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; padding:1px 5px; border-radius:4px; font-weight:700;">✓ ถูก ${liveCorrect}</span>
+              <span style="background:#fef2f2; color:#dc2626; border:1px solid #fecaca; padding:1px 5px; border-radius:4px; font-weight:700;">✗ ผิด ${liveWrong}</span>
+            </div>
+          `;
+          percentText = `
+            <div><strong style="color:#0284c7; font-size:1.05rem;">${row.percentage}%</strong></div>
+            <div style="font-size:0.75rem; color:#64748b; margin-top:2px;">(เกณฑ์ 80%)</div>
+          `;
           attemptText = `<span class="badge-pill bg-primary-soft">รอบที่ ${row.attemptCount} (กำลังทำ)</span>`;
+          displayTimestamp = `
+            <div style="font-weight:600; color:#0284c7; font-size:0.85rem;"><i class="fa-solid fa-pen-to-square"></i> ทำถึงข้อที่ ${liveAnswered}</div>
+            <div style="font-size:0.75rem; color:#64748b; margin-top:2px;">ตอบแล้ว ${liveAnswered}/25 (เหลือ ${remainingQ} ข้อ)</div>
+          `;
         } else {
           statusBadge = `<span class="badge-status-pending"><i class="fa-solid fa-clock"></i> ยังไม่เสร็จ / ยังไม่สอบ</span>`;
           scoreText = `<span class="text-muted">-</span>`;
@@ -1710,7 +1795,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td>${scoreText}</td>
           <td>${percentText}</td>
           <td>${attemptText}</td>
-          <td>${row.latestTimestamp}</td>
+          <td>${displayTimestamp}</td>
           <td style="text-align:center;">${actionBtn}</td>
         `;
 
@@ -1722,7 +1807,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btnReset) {
           btnReset.addEventListener('click', (e) => {
             e.stopPropagation();
-            resetEmployeeLiveProgress(row.empId, row.fullName);
+            resetEmployeeLiveProgress(row.empId, row.fullName, btnReset);
           });
         }
 
@@ -1844,7 +1929,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btnReset) {
           btnReset.addEventListener('click', (e) => {
             e.stopPropagation();
-            resetEmployeeLiveProgress(row.empId, row.fullName);
+            resetEmployeeLiveProgress(row.empId, row.fullName, btnReset);
           });
         }
 
