@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function initLivePolling() {
     if (livePollInterval) clearInterval(livePollInterval);
 
-    // 1. Cloud Polling ตรวจสอบข้อมูลจาก Google Sheet อัตโนมัติทุก 1.5 วินาที (สำหรับใช้งานข้ามอุปกรณ์/มือถือ)
+    // 1. Cloud Polling ตรวจสอบข้อมูลจาก Google Sheet อัตโนมัติทุก 5 วินาที (ตามที่ผู้ใช้กำหนดเพื่อความเสถียรและแม่นยำ)
     livePollInterval = setInterval(async () => {
       if (isAdminLoggedIn && !screenDashboard.classList.contains('hidden')) {
         if (!toggleLivePolling || toggleLivePolling.checked) {
@@ -191,7 +191,14 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
       }
-    }, 1500);
+    }, 5000);
+
+    // รีเฟรชทันทีเมื่อแอดมินสลับกลับมาที่หน้าต่าง/แท็บแดชบอร์ด
+    window.addEventListener('focus', () => {
+      if (isAdminLoggedIn && !screenDashboard.classList.contains('hidden')) {
+        fetchDataFromGoogleSheet(true);
+      }
+    });
 
     // 2. รับสัญญาณสดทันที 0ms ผ่าน BroadcastChannel (เมื่อเปิดข้อสอบและแดชบอร์ดคนละแท็บ)
     if (syncChannel) {
@@ -565,9 +572,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!googleScriptUrl) return;
     try {
       if (!silent) lookupSpinner.classList.remove('hidden');
-      // 🌟 ใส่ cache-buster ป้องกัน Browser แคชผล (Simple Request ปราศจาก Custom Headers เพื่อป้องกันปัญหา CORS บนมือถือ)
+      // 🌟 ใส่ cache-buster ป้องกัน Browser แคชผล และกำหนด Timeout 8 วินาทีป้องกันการค้าง
       const cacheBuster = Date.now();
-      const resp = await fetch(`${googleScriptUrl}?action=getEmployees&sheet=ผลสอบปฐมนิเทศ&_t=${cacheBuster}`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const resp = await fetch(`${googleScriptUrl}?action=getEmployees&sheet=ผลสอบปฐมนิเทศ&_t=${cacheBuster}`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
       const data = await resp.json();
       if (!silent) lookupSpinner.classList.add('hidden');
 
@@ -1493,7 +1505,27 @@ document.addEventListener('DOMContentLoaded', () => {
         candidates.sort((a, b) => (b.answeredCount || 0) - (a.answeredCount || 0));
         liveRec = candidates[0];
       }
-      const isLiveActive = liveRec && (!liveRec.isSubmitted);
+
+      // 🌟 ตรวจสอบว่ากำลังทำข้อสอบอยู่จริงหรือไม่:
+      // 1) ถ้าเคยสอบแล้ว (hasTaken === true):
+      //    จะถือว่ากำลังสอบสดก็ต่อเมื่อเป็นการทำข้อสอบรอบใหม่ (attemptNumber > subs.length) และมีคำตอบ (answeredCount > 0)
+      //    หากยังไม่เริ่มรอบใหม่ ให้แสดงผลสอบเดิมล่าสุดเสมอ (ผ่าน / ไม่ผ่าน พร้อมคะแนนและ %)
+      // 2) ถ้ายังไม่เคยสอบเลย (hasTaken === false):
+      //    จะถือว่ากำลังสอบสดเมื่อมี liveRec ที่ยังไม่ส่ง (isSubmitted !== true) และมีการตอบข้อสอบ (answeredCount > 0)
+      let isLiveActive = false;
+      if (liveRec && !liveRec.isSubmitted) {
+        const liveAttempt = parseInt(liveRec.attemptNumber, 10) || 1;
+        const liveAnsCount = liveRec.answeredCount || (liveRec.answers || []).length || 0;
+        if (hasTaken) {
+          if (liveAttempt > subs.length && liveAnsCount > 0) {
+            isLiveActive = true;
+          }
+        } else {
+          if (liveAnsCount > 0) {
+            isLiveActive = true;
+          }
+        }
+      }
 
       let status = 'PENDING';
       let latestScore = null;
@@ -2236,7 +2268,27 @@ document.addEventListener('DOMContentLoaded', () => {
         candidates.sort((a, b) => (b.answeredCount || 0) - (a.answeredCount || 0));
         liveRec = candidates[0];
       }
-      const isLiveActive = liveRec && (!liveRec.isSubmitted);
+
+      // 🌟 ตรวจสอบว่ากำลังทำข้อสอบอยู่จริงหรือไม่:
+      // 1) ถ้าเคยสอบแล้ว (hasTaken === true):
+      //    จะถือว่ากำลังสอบสดก็ต่อเมื่อเป็นการทำข้อสอบรอบใหม่ (attemptNumber > subs.length) และมีคำตอบ (answeredCount > 0)
+      //    หากยังไม่เริ่มรอบใหม่ ให้แสดงผลสอบเดิมล่าสุดเสมอ (ผ่าน / ไม่ผ่าน พร้อมคะแนนและ %)
+      // 2) ถ้ายังไม่เคยสอบเลย (hasTaken === false):
+      //    จะถือว่ากำลังสอบสดเมื่อมี liveRec ที่ยังไม่ส่ง (isSubmitted !== true) และมีการตอบข้อสอบ (answeredCount > 0)
+      let isLiveActive = false;
+      if (liveRec && !liveRec.isSubmitted) {
+        const liveAttempt = parseInt(liveRec.attemptNumber, 10) || 1;
+        const liveAnsCount = liveRec.answeredCount || (liveRec.answers || []).length || 0;
+        if (hasTaken) {
+          if (liveAttempt > subs.length && liveAnsCount > 0) {
+            isLiveActive = true;
+          }
+        } else {
+          if (liveAnsCount > 0) {
+            isLiveActive = true;
+          }
+        }
+      }
 
       let status = 'PENDING';
       let latestScore = null;
