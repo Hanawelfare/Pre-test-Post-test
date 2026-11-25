@@ -306,8 +306,16 @@ class OrientationQuizEngine {
   }
 
   syncLiveProgress(fetchedLiveProgress) {
+    if (window.__resetAllActive) {
+      this.liveProgressLog = [];
+      return;
+    }
     if (Array.isArray(fetchedLiveProgress)) {
-      this.liveProgressLog = fetchedLiveProgress;
+      const blacklist = window.__recentlyResetEmpIds || new Set();
+      this.liveProgressLog = fetchedLiveProgress.filter(l => {
+        const cid = this.cleanEmpId(l.empId);
+        return !blacklist.has(cid);
+      });
     } else {
       this.liveProgressLog = [];
     }
