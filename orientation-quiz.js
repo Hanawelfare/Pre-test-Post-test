@@ -279,26 +279,19 @@ class OrientationQuizEngine {
 
   syncSubmissionsLog(fetchedSubmissions) {
     if (Array.isArray(fetchedSubmissions)) {
-      // Filter orientation submissions if mixed, or accept all if dedicated
-      const orientationSubs = fetchedSubmissions.filter(s => {
-        const t = (s.testType || '').toLowerCase();
-        // matches 'orientation', 'ปฐมนิเทศ', or empty if all are orientation
-        return t.includes('ปฐมนิเทศ') || t.includes('orientation') || t === 'แบบวัดผลการปฐมนิเทศ พนักงานรายวัน';
-      });
+      const targetList = [...fetchedSubmissions];
 
-      // If no specific orientation tags found, but testType is present, keep those explicitly marked or separate
-      // If none explicitly marked, we use orientationSubs or empty
-      const targetList = orientationSubs.length > 0 ? orientationSubs : fetchedSubmissions.filter(s => (s.testType || '').includes('ปฐมนิเทศ'));
-
-      // Calculate attempt number in chronological order
+      // คำนวณลำดับครั้งที่สอบตามลำดับเวลา (Attempt 1, 2, 3...)
       const counters = {};
       targetList.forEach(sub => {
         const cleanId = this.cleanEmpId(sub.empId);
         counters[cleanId] = (counters[cleanId] || 0) + 1;
-        sub.attemptNumber = counters[cleanId];
+        if (!sub.attemptNumber) {
+          sub.attemptNumber = counters[cleanId];
+        }
       });
 
-      // Store in reverse chronological order (newest first)
+      // จัดเก็บแบบเรียงจากใหม่สุดไปเก่าสุด (Newest First) เพื่อให้ subs[0] เป็นการสอบครั้งล่าสุดเสมอ
       this.submissionsLog = [...targetList].reverse();
     } else {
       this.submissionsLog = [];
